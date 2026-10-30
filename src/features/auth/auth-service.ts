@@ -1,21 +1,26 @@
 import type { AdvisorSession } from '../../contracts/api';
-import type { LearnGuardApiClient, LoginCredentials } from '../../api/client';
+import type { ILearnGuardApiClient, LoginCredentials } from '../../api/client';
+import { clearSession, readSession, saveSession } from '../../utils/session';
 
+/**
+ * Authentication service: delegates login to the API client and persists
+ * the resulting advisor session via the shared session utilities.
+ */
 export class AuthService {
-  constructor(private readonly api: LearnGuardApiClient) {}
+  constructor(private readonly api: ILearnGuardApiClient) {}
 
   login(credentials: LoginCredentials): Promise<AdvisorSession> {
-    // TODO: call API and persist session using the agreed secure storage policy.
-    return this.api.login(credentials);
+    return this.api.login(credentials).then((session) => {
+      saveSession(session);
+      return session;
+    });
   }
 
   logout(): void {
-    // TODO: clear local session and sensitive in-memory state.
-    throw new Error('TODO: implement logout/session cleanup');
+    clearSession();
   }
 
   getCurrentSession(): AdvisorSession | null {
-    // TODO: restore/validate the current advisor session.
-    throw new Error('TODO: implement session lookup');
+    return readSession();
   }
 }

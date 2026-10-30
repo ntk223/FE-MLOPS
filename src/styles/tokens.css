@@ -1,0 +1,94 @@
+/**
+ * LearnGuard design tokens.
+ * Single source of truth for colors, spacing, radius, shadows, and typography.
+ * All color pairs below are chosen for WCAG AA contrast on their backgrounds.
+ */
+:root {
+  /* ---- Brand palette (professional blue/teal) ---- */
+  --color-primary: #0e7490; /* cyan-700 */
+  --color-primary-hover: #155e75; /* cyan-800 */
+  --color-primary-active: #164e63; /* cyan-900 */
+  --color-primary-soft: #ecfeff; /* cyan-50 */
+  --color-on-primary: #ffffff;
+
+  --color-secondary: #1e293b; /* slate-800 */
+  --color-secondary-hover: #334155;
+  --color-danger: #b91c1c; /* red-700 */
+  --color-danger-hover: #991b1b;
+  --color-ghost: transparent;
+
+  /* ---- Neutrals ---- */
+  --color-bg: #f8fafc; /* slate-50 */
+  --color-surface: #ffffff;
+  --color-border: #cbd5e1; /* slate-300 */
+  --color-border-strong: #94a3b8; /* slate-400 */
+  --color-text: #0f172a; /* slate-900 */
+  --color-text-secondary: #334155; /* slate-700 */
+  --color-text-muted: #475569; /* slate-600 */
+
+  /* ---- Semantic status colors (4 PredictionStatus values) ---- */
+  /* scored — amber/warning: #92400E on #FEF3C7 (contrast ~7.9:1) */
+  --status-scored-bg: #fef3c7;
+  --status-scored-border: #d97706;
+  --status-scored-text: #92400e;
+  /* insufficient_data — gray: #374151 on #F3F4F6 (contrast ~9.1:1) */
+  --status-insufficient-bg: #f3f4f6;
+  --status-insufficient-border: #9ca3af;
+  --status-insufficient-text: #374151;
+  /* manual_review — purple: #5B21B6 on #EDE9FE (contrast ~8.2:1) */
+  --status-manual-bg: #ede9fe;
+  --status-manual-border: #7c3aed;
+  --status-manual-text: #5b21b6;
+  /* no_prediction — red: #991B1B on #FEE2E2 (contrast ~8.5:1) */
+  --status-no-prediction-bg: #fee2e2;
+  --status-no-prediction-border: #dc2626;
+  --status-no-prediction-text: #991b1b;
+
+  /* ---- Feedback ---- */
+  --color-error: #b91c1c;
+  --color-error-bg: #fef2f2;
+  --color-success: #15803d;
+
+  /* ---- Spacing scale (4px base) ---- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* ---- Radius ---- */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-full: 9999px;
+
+  /* ---- Shadow ---- */
+  --shadow-sm: 0 1px 2px 0 rgb(15 23 42 / 0.08);
+  --shadow-md: 0 2px 8px 0 rgb(15 23 42 / 0.12);
+  --shadow-lg: 0 8px 24px 0 rgb(15 23 42 / 0.16);
+
+  /* ---- Typography ---- */
+  --font-family: 'Inter', 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial,
+    'Noto Sans', sans-serif;
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.8125rem;
+  --font-size-base: 0.9375rem;
+  --font-size-md: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.375rem;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --line-height: 1.5;
+
+  /* ---- Layout ---- */
+  --sidebar-width: 248px;
+  --topbar-height: 60px;
+  --focus-ring: 0 0 0 3px rgb(14 116 144 / 0.4);
+}

@@ -4,3 +4,6 @@ dist/
 .env.*
 !.env.example
 coverage/
+.opencode
+.v-skills
+v-agent-debug.log

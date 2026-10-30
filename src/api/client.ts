@@ -10,7 +10,20 @@ export interface LoginCredentials {
   password: string;
 }
 
-export class LearnGuardApiClient {
+/** Contract shared by the real client and the mock client. */
+export interface ILearnGuardApiClient {
+  login(credentials: LoginCredentials): Promise<AdvisorSession>;
+  listStudents(filters: StudentFilters): Promise<StudentPrediction[]>;
+  getStudent(predictionId: number): Promise<StudentPrediction>;
+  generateBrief(predictionId: number): Promise<AdvisorBrief>;
+  saveBriefDecision(
+    briefId: number,
+    action: 'accept' | 'reject',
+    feedback?: string,
+  ): Promise<AdvisorBrief>;
+}
+
+export class LearnGuardApiClient implements ILearnGuardApiClient {
   constructor(private readonly baseUrl: string) {}
 
   login(_credentials: LoginCredentials): Promise<AdvisorSession> {

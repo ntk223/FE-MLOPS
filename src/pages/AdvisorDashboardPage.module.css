@@ -1,0 +1,115 @@
+/* Page-scoped styles for the advisor priority queue (S2 / FR-04). */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+}
+
+/* §3.9-bis: the score is framed as advisory input, never a conclusion. */
+.subtitle {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.filterBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+.filterBar > * {
+  flex: 1 1 200px;
+  min-width: 200px;
+  max-width: 280px;
+}
+
+.tableRegion {
+  display: flex;
+  flex-direction: column;
+}
+
+.loadingBox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-12) var(--space-6);
+}
+
+.errorBox {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.errorActions {
+  display: flex;
+  justify-content: center;
+}
+
+/* Keyboard-focusable in-table link for the student identifier. */
+.studentLink {
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: var(--color-primary);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.studentLink:hover {
+  color: var(--color-primary-hover);
+  text-decoration: none;
+}
+
+.studentLink:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--radius-sm);
+}
+
+/* §3.9-bis: explicit reason label instead of a bar when there is no score. */
+.noScoreReason {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.tableNote {
+  margin: var(--space-3) 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.rangeText {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.paginationActions {
+  display: flex;
+  gap: var(--space-2);
+}

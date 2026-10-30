@@ -1,4 +1,4 @@
-import type { ReactElement | null } from 'react';
+import type { ReactElement } from 'react';
 import type { AdvisorBrief, StudentPrediction } from '../contracts/api';
 
 export interface StudentDetailPageProps {

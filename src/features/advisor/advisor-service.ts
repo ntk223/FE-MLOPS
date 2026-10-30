@@ -1,8 +1,8 @@
 import type { StudentFilters, StudentPrediction } from '../../contracts/api';
-import type { LearnGuardApiClient } from '../../api/client';
+import type { ILearnGuardApiClient } from '../../api/client';
 
 export class AdvisorService {
-  constructor(private readonly api: LearnGuardApiClient) {}
+  constructor(private readonly api: ILearnGuardApiClient) {}
 
   getPriorityQueue(filters: StudentFilters): Promise<StudentPrediction[]> {
     // TODO: request advisor queue and apply documented priority ordering.
