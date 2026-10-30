@@ -50,12 +50,17 @@ function buildSignals(count: number): PredictionSignal[] {
     .map((item) => {
       const magnitude = round2(0.05 + rng() * 0.35);
       const contribution = item.positive ? magnitude : -magnitude;
-      const relation: PredictionSignal['relation'] = item.positive
-        ? 'higher_score'
-        : 'lower_score';
-      return { featureName: item.featureName, contribution, relation };
+      const direction: PredictionSignal['direction'] = item.positive
+        ? 'increases_risk'
+        : 'decreases_risk';
+      return { featureName: item.featureName, contribution, direction };
     });
   return chosen.sort((a, b) => Math.abs(b.contribution) - Math.abs(a.contribution));
+}
+
+/** 16 ký tự hex — khớp định dạng student_key thật (DB_CONTRACT §9.1). */
+function mockStudentKey(index: number): string {
+  return (index + 0x7bd60ace).toString(16).padStart(16, '0').slice(-16);
 }
 
 function buildStudentPredictions(): StudentPrediction[] {
@@ -68,38 +73,52 @@ function buildStudentPredictions(): StudentPrediction[] {
   ];
 
   statusPlan.forEach((status, index) => {
-    const moduleCode = MODULE_CODES[index % MODULE_CODES.length];
-    const presentationCode =
+    const codeModule = MODULE_CODES[index % MODULE_CODES.length];
+    const codePresentation =
       PRESENTATION_CODES[Math.floor(index / MODULE_CODES.length) % PRESENTATION_CODES.length];
 
     let riskScore: number | null = null;
+    let predictedLabel: 0 | 1 | null = null;
     let threshold: number | null = null;
     let uncertainty: number | null = null;
-    let signals: PredictionSignal[] = [];
+    let reviewReason: StudentPrediction['reviewReason'] = null;
+    let topSignals: PredictionSignal[] = [];
 
     if (status === 'scored') {
       riskScore = round2(0.3 + rng() * 0.68);
+      predictedLabel = riskScore >= 0.6 ? 1 : 0;
       threshold = 0.6;
       uncertainty = round2(0.05 + rng() * 0.4);
-      signals = buildSignals(3 + Math.floor(rng() * 3)); // 3–5 signals
+      topSignals = buildSignals(3 + Math.floor(rng() * 3)); // 3–5 signals
     } else if (status === 'manual_review') {
       uncertainty = round2(0.5 + rng() * 0.45);
       riskScore = round2(0.35 + rng() * 0.5);
       threshold = 0.6;
-      signals = buildSignals(3);
+      reviewReason = 'high_uncertainty';
+      topSignals = buildSignals(3);
+    } else if (status === 'insufficient_data') {
+      reviewReason = 'insufficient_data';
+    } else if (status === 'no_prediction') {
+      reviewReason = 'no_prediction';
     }
-    // insufficient_data và no_prediction: không có score mặc định (quy ước §3.9-bis).
 
     records.push({
-      predictionId: 1001 + index,
-      studentKey: `STU-${String(index + 1).padStart(5, '0')}`,
-      moduleCode,
-      presentationCode,
+      codeModule,
+      codePresentation,
+      studentKey: mockStudentKey(index),
+      split: 'validation',
       riskScore,
+      predictedLabel,
       threshold,
       uncertainty,
       status,
-      signals,
+      reviewReason,
+      modelVersion: 'logreg-v1:b791ed6e:48843ee8:1ccd9891',
+      snapshotVersion: 'snapshot-v1:cutoff27:35de8103:39e10cfa',
+      cutoffDay: 27,
+      topSignals,
+      runId: 'mock-run',
+      scoredAt: new Date('2026-10-30T08:34:09Z').toISOString(),
     });
   });
 

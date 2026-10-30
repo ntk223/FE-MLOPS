@@ -3,6 +3,7 @@ import type { ReactElement } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type {
   ApiError,
+  PredictionPage,
   PredictionStatus,
   StudentFilters,
   StudentPrediction,
@@ -30,7 +31,7 @@ export interface AdvisorDashboardPageProps {
    */
   predictions?: StudentPrediction[];
   /** Legacy prop kept for App.tsx compatibility; invoked when a row is opened. */
-  onSelect?: (predictionId: number) => void;
+  onSelect?: (ref: StudentPrediction) => void;
 }
 
 const PAGE_SIZE = 15;
@@ -95,13 +96,13 @@ function isPredictionStatus(value: string): value is PredictionStatus {
 function buildApiFilters(filters: QueueFilters): StudentFilters {
   const apiFilters: StudentFilters = {};
   if (filters.moduleCode !== '') {
-    apiFilters.moduleCode = filters.moduleCode;
+    apiFilters.codeModule = filters.moduleCode;
   }
   if (filters.presentationCode !== '') {
-    apiFilters.presentationCode = filters.presentationCode;
+    apiFilters.codePresentation = filters.presentationCode;
   }
   if (isPredictionStatus(filters.riskState)) {
-    apiFilters.riskState = filters.riskState;
+    apiFilters.status = filters.riskState;
   }
   return apiFilters;
 }
@@ -138,6 +139,7 @@ export function AdvisorDashboardPage({
   const [filters, setFilters] = useState<QueueFilters>(DEFAULT_FILTERS);
   const [offset, setOffset] = useState(0);
   const [rows, setRows] = useState<StudentPrediction[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ApiError | null>(null);
   const [hasMore, setHasMore] = useState(false);
@@ -151,16 +153,17 @@ export function AdvisorDashboardPage({
     advisorService
       .getPriorityQueue({
         ...buildApiFilters(filters),
-        limit: PAGE_SIZE + 1, // one extra row to detect the next page
+        orderBy: 'risk_score',
+        limit: PAGE_SIZE,
         offset,
       })
-      .then((result) => {
+      .then((page: PredictionPage) => {
         if (cancelled) {
           return;
         }
-        const more = result.length > PAGE_SIZE;
-        setRows(more ? result.slice(0, PAGE_SIZE) : result);
-        setHasMore(more);
+        setRows(page.items);
+        setTotal(page.total);
+        setHasMore(offset + page.items.length < page.total);
         setLoading(false);
       })
       .catch((cause: unknown) => {
@@ -181,9 +184,13 @@ export function AdvisorDashboardPage({
     setOffset(0);
   }
 
-  function openProfile(predictionId: number): void {
-    onSelect?.(predictionId);
-    navigate(`/students/${predictionId}`);
+  function openProfile(row: StudentPrediction): void {
+    onSelect?.(row);
+    navigate(
+      `/predictions/${encodeURIComponent(row.codeModule)}` +
+        `/${encodeURIComponent(row.codePresentation)}` +
+        `/${encodeURIComponent(row.studentKey)}`,
+    );
   }
 
   const columns: Array<DataTableColumn<StudentPrediction>> = [
@@ -194,7 +201,7 @@ export function AdvisorDashboardPage({
         <button
           type="button"
           className={styles.studentLink}
-          onClick={() => openProfile(row.predictionId)}
+          onClick={() => openProfile(row)}
         >
           {row.studentKey}
         </button>
@@ -203,7 +210,7 @@ export function AdvisorDashboardPage({
     {
       key: 'module',
       header: 'Học phần / Kỳ',
-      render: (row) => `${row.moduleCode} · ${row.presentationCode}`,
+      render: (row) => `${row.codeModule} · ${row.codePresentation}`,
     },
     {
       key: 'risk',
@@ -231,7 +238,12 @@ export function AdvisorDashboardPage({
     {
       key: 'status',
       header: 'Trạng thái',
-      render: (row) => <StatusBadge status={row.status} />,
+      render: (row) =>
+        row.reviewReason !== null ? (
+          <StatusBadge status={row.status} reason={row.reviewReason} />
+        ) : (
+          <StatusBadge status={row.status} />
+        ),
     },
     {
       key: 'actions',
@@ -239,7 +251,7 @@ export function AdvisorDashboardPage({
       render: (row) => (
         <Button
           variant="secondary"
-          onClick={() => openProfile(row.predictionId)}
+          onClick={() => openProfile(row)}
         >
           Xem hồ sơ
         </Button>
@@ -249,9 +261,8 @@ export function AdvisorDashboardPage({
 
   const rangeStart = rows.length > 0 ? offset + 1 : 0;
   const rangeEnd = offset + rows.length;
-  // The contract has no total count; on the last page the total is exact,
-  // otherwise it is shown as a lower bound ("15+").
-  const totalLabel = hasMore ? `${rangeEnd}+` : `${rangeEnd}`;
+  // Backend trả total thật — phân trang chính xác, không cần heuristic.
+  const totalLabel = `${total}`;
 
   return (
     <div className={styles.page}>
@@ -322,7 +333,9 @@ export function AdvisorDashboardPage({
             <DataTable
               columns={columns}
               rows={rows}
-              getRowKey={(row) => String(row.predictionId)}
+              getRowKey={(row) =>
+                `${row.codeModule}-${row.codePresentation}-${row.studentKey}`
+              }
               caption="Danh sách sinh viên ưu tiên theo điểm gợi ý"
             />
             <p className={styles.tableNote}>

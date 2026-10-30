@@ -10,6 +10,7 @@ import { apiClient } from './api';
 import { AppShell } from './components/layout/AppShell';
 import { AdvisorDashboardPage } from './pages/AdvisorDashboardPage';
 import { LoginPage } from './pages/LoginPage';
+import { StudentDetailPage } from './pages/StudentDetailPage';
 import { AuthService } from './features/auth/auth-service';
 import { clearSession, readSession } from './utils/session';
 
@@ -45,10 +46,6 @@ function AuthedShell({ children }: { children: ReactElement }): ReactElement {
   );
 }
 
-function StudentProfilePlaceholder(): ReactElement {
-  return <p>Hồ sơ sinh viên — đang triển khai</p>;
-}
-
 export function App(): ReactElement {
   return (
     <BrowserRouter>
@@ -69,24 +66,23 @@ export function App(): ReactElement {
           element={
             <RequireAuth>
               <AuthedShell>
-                <AdvisorDashboardPage
-                  predictions={[]}
-                  onSelect={() => undefined}
-                />
+                <AdvisorDashboardPage />
               </AuthedShell>
             </RequireAuth>
           }
         />
         <Route
-          path="/students/:id"
+          path="/predictions/:codeModule/:codePresentation/:studentKey"
           element={
             <RequireAuth>
               <AuthedShell>
-                <StudentProfilePlaceholder />
+                <StudentDetailPage />
               </AuthedShell>
             </RequireAuth>
           }
         />
+        {/* Legacy route — redirect to the canonical predictions list. */}
+        <Route path="/students/:id" element={<Navigate to="/" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

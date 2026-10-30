@@ -45,8 +45,20 @@ const statusColor: Record<PredictionStatus, BadgeColor> = {
 
 export interface StatusBadgeProps {
   status: PredictionStatus;
+  /** Optional review_reason tooltip (backend: insufficient_data | high_uncertainty | no_prediction). */
+  reason?: string | null;
 }
 
-export function StatusBadge({ status }: StatusBadgeProps): ReactElement {
-  return <Badge color={statusColor[status]}>{statusLabel[status]}</Badge>;
+const reasonSuffix: Record<string, string> = {
+  insufficient_data: '· thiếu dữ liệu',
+  high_uncertainty: '· không chắc chắn',
+  no_prediction: '· không có dự đoán',
+};
+
+export function StatusBadge({ status, reason }: StatusBadgeProps): ReactElement {
+  const label =
+    reason !== null && reason !== undefined && reasonSuffix[reason] !== undefined
+      ? `${statusLabel[status]} ${reasonSuffix[reason]}`
+      : statusLabel[status];
+  return <Badge color={statusColor[status]}>{label}</Badge>;
 }
