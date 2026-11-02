@@ -16,6 +16,26 @@ export interface LoginCredentials {
 }
 
 /**
+ * Aggregated counts for the advisor dashboard summary strip.
+ * All counts are computed over the mock/backend dataset AFTER applying
+ * the given filters (not paginated).
+ */
+export interface QueueStats {
+  /** Total flagged students after filters. */
+  flaggedTotal: number;
+  /** Items with status = scored. */
+  scored: number;
+  /** Items with status = insufficient_data. */
+  insufficientData: number;
+  /** Items with status = manual_review. */
+  manualReview: number;
+  /** Items with status = no_prediction. */
+  noPrediction: number;
+  /** Scored items whose riskScore >= threshold. */
+  aboveThreshold: number;
+}
+
+/**
  * Contract shared by the real client and the mock client
  * (docs/API_CONTRACT.md v1.0). Auth and briefs exist only on the mock until
  * the backend ships M6 auth and M8 brief endpoints.
@@ -23,6 +43,7 @@ export interface LoginCredentials {
 export interface ILearnGuardApiClient {
   login(credentials: LoginCredentials): Promise<AdvisorSession>;
   listPredictions(filters: StudentFilters): Promise<PredictionPage>;
+  getQueueStats(filters: StudentFilters): Promise<QueueStats>;
   getPrediction(ref: PredictionRef): Promise<StudentPrediction>;
   listPredictionsForStudent(studentKey: string): Promise<PredictionPage>;
   generateBrief(predictionId: number): Promise<AdvisorBrief>;
@@ -200,6 +221,11 @@ export class LearnGuardApiClient implements ILearnGuardApiClient {
       limit: page.limit,
       offset: page.offset,
     };
+  }
+
+  async getQueueStats(_filters: StudentFilters): Promise<QueueStats> {
+    // TODO(backend): GET /predictions/stats chưa triển khai — mock-stage only.
+    throw new BackendNotImplementedError('predictions/stats');
   }
 
   async listPredictionsForStudent(studentKey: string): Promise<PredictionPage> {

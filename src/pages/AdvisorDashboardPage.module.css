@@ -1,46 +1,72 @@
-/* Page-scoped styles for the advisor priority queue (S2 / FR-04). */
+/* Page-scoped styles for the advisor priority queue (S2 / FR-04).
+   Faithful to docs/design/learnguard-redesign.html — "S2 · Danh sách ưu tiên". */
 
 .page {
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
+  gap: var(--space-4);
 }
 
 .header {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
+  margin-bottom: var(--space-2);
 }
 
 .title {
   margin: 0;
-  font-size: var(--font-size-xl);
+  font-size: 22px;
   font-weight: var(--font-weight-bold);
+  letter-spacing: -0.01em;
   color: var(--color-text);
 }
 
 /* §3.9-bis: the score is framed as advisory input, never a conclusion. */
 .subtitle {
   margin: 0;
-  font-size: var(--font-size-sm);
+  font-size: 13.5px;
   color: var(--color-text-muted);
 }
 
+/* ---- Filter bar (mockup .filter-bar) ---- */
 .filterBar {
   display: flex;
+  align-items: flex-end;
   flex-wrap: wrap;
-  gap: var(--space-4);
+  gap: var(--space-3);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: 14px 16px;
 }
 
 .filterBar > * {
-  flex: 1 1 200px;
-  min-width: 200px;
-  max-width: 280px;
+  flex: 0 1 200px;
+  min-width: 180px;
+  max-width: 240px;
 }
 
+/* ---- Summary strip (mockup .summary-strip) ---- */
+.summaryStrip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-3);
+}
+
+/* ---- Table card (mockup .table-card) ---- */
 .tableRegion {
   display: flex;
   flex-direction: column;
+}
+
+.tableCard {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
 }
 
 .loadingBox {
@@ -54,6 +80,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  padding: var(--space-6);
 }
 
 .errorActions {
@@ -61,20 +88,25 @@
   justify-content: center;
 }
 
-/* Keyboard-focusable in-table link for the student identifier. */
+/* Keyboard-focusable in-table link for the student identifier.
+   Mockup .stu-id: bold dark identifier; hover reveals the link affordance. */
 .studentLink {
   padding: 0;
   border: none;
   background: none;
   font: inherit;
-  color: var(--color-primary);
-  text-decoration: underline;
+  font-size: 13.5px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  color: var(--color-text);
+  text-decoration: none;
   cursor: pointer;
+  font-variant-numeric: tabular-nums;
 }
 
 .studentLink:hover {
-  color: var(--color-primary-hover);
-  text-decoration: none;
+  color: var(--color-primary);
+  text-decoration: underline;
 }
 
 .studentLink:focus-visible {
@@ -83,33 +115,114 @@
   border-radius: var(--radius-sm);
 }
 
-/* §3.9-bis: explicit reason label instead of a bar when there is no score. */
+/* §3.9-bis: dashed reason chip instead of a bar when there is no score
+   (mockup .nonscore). */
 .noScoreReason {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
-}
-
-.tableNote {
-  margin: var(--space-3) 0 0;
-  font-size: var(--font-size-xs);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  font-weight: var(--font-weight-medium);
   color: var(--color-text-muted);
+  background-color: #f8fafc;
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  padding: 7px 10px;
+  white-space: nowrap;
 }
 
-.pagination {
+/* Warn variant (mockup .nonscore.warn) for manual_review / no_prediction. */
+.noScoreReasonWarn {
+  color: var(--status-manual-text);
+  background-color: #faf9ff;
+  border-color: var(--status-manual-soft-border);
+}
+
+.numText {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Muted em-dash for non-scored uncertainty / priority. */
+.nullValue {
+  color: var(--color-text-disabled);
+  font-weight: var(--font-weight-normal);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Mức ưu tiên (mockup .prio-value / .prio-rank) ---- */
+.priorityCell {
+  display: inline-flex;
+  align-items: center;
+}
+
+.priorityValue {
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+}
+
+.rankChip {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin-right: 7px;
+  border-radius: 5px;
+  font-size: 10.5px;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-primary-hover);
+  background-color: var(--color-primary-soft);
+}
+
+/* ---- Table footer (mockup .table-foot) ---- */
+.tableFooter {
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
   gap: var(--space-3);
-  margin-top: var(--space-4);
+  padding: 12px 16px;
+  background-color: var(--color-bg-subtle);
+  border-top: 1px solid var(--color-border-soft);
 }
 
 .rangeText {
-  font-size: var(--font-size-sm);
+  font-size: 12.5px;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.rangeText strong {
   color: var(--color-text-secondary);
+  font-weight: var(--font-weight-semibold);
 }
 
 .paginationActions {
   display: flex;
   gap: var(--space-2);
+}
+
+/* ---- §3.9-bis caution note (mockup .caution-note) ---- */
+.cautionNote {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 0;
+  font-size: 12.5px;
+  color: var(--color-text-faint);
+}
+
+.cautionNote svg {
+  flex: none;
+  color: #b45309;
+}
+
+/* Summary strip collapses to 2 columns on narrow content areas. */
+@media (max-width: 900px) {
+  .summaryStrip {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }

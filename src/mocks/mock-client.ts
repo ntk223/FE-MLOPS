@@ -7,7 +7,11 @@ import type {
   StudentFilters,
   StudentPrediction,
 } from '../contracts/api';
-import type { ILearnGuardApiClient, LoginCredentials } from '../api/client';
+import type {
+  ILearnGuardApiClient,
+  LoginCredentials,
+  QueueStats,
+} from '../api/client';
 import { MOCK_BRIEFS, MOCK_STUDENTS } from './data';
 
 /**
@@ -69,24 +73,7 @@ export class MockApiClient implements ILearnGuardApiClient {
   async listPredictions(filters: StudentFilters): Promise<PredictionPage> {
     await this.delay();
 
-    const filtered = this.students.filter((student) => {
-      if (filters.status && student.status !== filters.status) {
-        return false;
-      }
-      if (filters.codeModule && student.codeModule !== filters.codeModule) {
-        return false;
-      }
-      if (
-        filters.codePresentation &&
-        student.codePresentation !== filters.codePresentation
-      ) {
-        return false;
-      }
-      if (filters.studentKey && student.studentKey !== filters.studentKey) {
-        return false;
-      }
-      return true;
-    });
+    const filtered = this.applyFilters(filters);
 
     // Priority: scored trước, riskScore DESC (khớp backend ORDER BY
     // risk_score DESC NULLS LAST).
@@ -106,6 +93,36 @@ export class MockApiClient implements ILearnGuardApiClient {
       total: sorted.length,
       limit,
       offset,
+    };
+  }
+
+  /** Aggregated summary-strip counts over the dataset after filters. */
+  async getQueueStats(filters: StudentFilters): Promise<QueueStats> {
+    await this.delay();
+
+    const filtered = this.applyFilters(filters);
+    const scoredItems = filtered.filter((student) => student.status === 'scored');
+
+    const aboveThreshold = scoredItems.filter(
+      (student) =>
+        student.riskScore !== null &&
+        student.threshold !== null &&
+        student.riskScore >= student.threshold,
+    ).length;
+
+    return {
+      flaggedTotal: filtered.length,
+      scored: scoredItems.length,
+      insufficientData: filtered.filter(
+        (student) => student.status === 'insufficient_data',
+      ).length,
+      manualReview: filtered.filter(
+        (student) => student.status === 'manual_review',
+      ).length,
+      noPrediction: filtered.filter(
+        (student) => student.status === 'no_prediction',
+      ).length,
+      aboveThreshold,
     };
   }
 
@@ -204,6 +221,28 @@ export class MockApiClient implements ILearnGuardApiClient {
       ...this.briefs.slice(index + 1),
     ];
     return updated;
+  }
+
+  /** Filter the mock dataset exactly like the backend list endpoint. */
+  private applyFilters(filters: StudentFilters): StudentPrediction[] {
+    return this.students.filter((student) => {
+      if (filters.status && student.status !== filters.status) {
+        return false;
+      }
+      if (filters.codeModule && student.codeModule !== filters.codeModule) {
+        return false;
+      }
+      if (
+        filters.codePresentation &&
+        student.codePresentation !== filters.codePresentation
+      ) {
+        return false;
+      }
+      if (filters.studentKey && student.studentKey !== filters.studentKey) {
+        return false;
+      }
+      return true;
+    });
   }
 
   private delay(): Promise<void> {

@@ -8,17 +8,18 @@ import type {
   StudentFilters,
   StudentPrediction,
 } from '../contracts/api';
+import type { QueueStats } from '../api/client';
 import { apiClient } from '../api';
 import { AdvisorService } from '../features/advisor/advisor-service';
 import {
   Button,
-  Card,
   DataTable,
   EmptyState,
   ErrorState,
   RiskBar,
   Select,
   Spinner,
+  StatCard,
   StatusBadge,
 } from '../components/ui';
 import type { DataTableColumn, SelectOption } from '../components/ui';
@@ -132,6 +133,11 @@ function formatPercent(value: number | null): string {
   return `${Math.round(value * 100)}%`;
 }
 
+/** Stable unique key of a prediction row (same as DataTable getRowKey). */
+function rowKey(row: StudentPrediction): string {
+  return `${row.codeModule}-${row.codePresentation}-${row.studentKey}`;
+}
+
 export function AdvisorDashboardPage({
   onSelect,
 }: AdvisorDashboardPageProps): ReactElement {
@@ -144,6 +150,7 @@ export function AdvisorDashboardPage({
   const [error, setError] = useState<ApiError | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
+  const [stats, setStats] = useState<QueueStats | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -179,6 +186,30 @@ export function AdvisorDashboardPage({
     };
   }, [filters, offset, reloadToken]);
 
+  // Summary strip counts — refetched when filters (or the retry button)
+  // change, independent of pagination. On error the strip hides gracefully.
+  useEffect(() => {
+    let cancelled = false;
+    setStats(null);
+
+    advisorService
+      .getQueueStats(buildApiFilters(filters))
+      .then((next: QueueStats) => {
+        if (!cancelled) {
+          setStats(next);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setStats(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [filters, reloadToken]);
+
   function handleFilterChange(patch: Partial<QueueFilters>): void {
     setFilters((previous) => ({ ...previous, ...patch }));
     setOffset(0);
@@ -191,6 +222,19 @@ export function AdvisorDashboardPage({
         `/${encodeURIComponent(row.codePresentation)}` +
         `/${encodeURIComponent(row.studentKey)}`,
     );
+  }
+
+  // Rank chips (1/2/3) apply to the top-3 priority-bearing rows of the
+  // current sorted result — page 1 only (offset 0).
+  const rankByKey = new Map<string, number>();
+  if (offset === 0) {
+    let rank = 0;
+    for (const row of rows.slice(0, 3)) {
+      if (row.riskScore !== null && row.uncertainty !== null) {
+        rank += 1;
+        rankByKey.set(rowKey(row), rank);
+      }
+    }
   }
 
   const columns: Array<DataTableColumn<StudentPrediction>> = [
@@ -226,14 +270,46 @@ export function AdvisorDashboardPage({
           );
         }
         return (
-          <span className={styles.noScoreReason}>{NO_SCORE_REASONS[row.status]}</span>
+          <span
+            className={
+              row.status === 'insufficient_data'
+                ? styles.noScoreReason
+                : `${styles.noScoreReason} ${styles.noScoreReasonWarn}`
+            }
+          >
+            {NO_SCORE_REASONS[row.status]}
+          </span>
         );
       },
     },
     {
       key: 'uncertainty',
       header: 'Độ không chắc chắn',
-      render: (row) => formatPercent(row.uncertainty),
+      render: (row) =>
+        row.status === 'scored' && row.uncertainty !== null ? (
+          <span className={styles.numText}>{formatPercent(row.uncertainty)}</span>
+        ) : (
+          <span className={styles.nullValue}>—</span>
+        ),
+    },
+    {
+      key: 'priority',
+      header: 'Mức ưu tiên',
+      render: (row) => {
+        if (row.riskScore === null || row.uncertainty === null) {
+          return <span className={styles.nullValue}>—</span>;
+        }
+        const rank = rankByKey.get(rowKey(row));
+        const priority = row.riskScore * row.uncertainty;
+        return (
+          <span className={styles.priorityCell}>
+            {rank !== undefined ? (
+              <span className={styles.rankChip}>{rank}</span>
+            ) : null}
+            <span className={styles.priorityValue}>{priority.toFixed(2)}</span>
+          </span>
+        );
+      },
     },
     {
       key: 'status',
@@ -273,98 +349,144 @@ export function AdvisorDashboardPage({
         </p>
       </header>
 
-      <Card>
-        <div className={styles.filterBar}>
-          <Select
-            id="filter-module"
-            label="Học phần"
-            options={MODULE_OPTIONS}
-            value={filters.moduleCode}
-            onChange={(event) =>
-              handleFilterChange({ moduleCode: event.target.value })
-            }
+      <section className={styles.filterBar} aria-label="Bộ lọc danh sách">
+        <Select
+          id="filter-module"
+          label="Học phần"
+          options={MODULE_OPTIONS}
+          value={filters.moduleCode}
+          onChange={(event) =>
+            handleFilterChange({ moduleCode: event.target.value })
+          }
+        />
+        <Select
+          id="filter-presentation"
+          label="Kỳ học"
+          options={PRESENTATION_OPTIONS}
+          value={filters.presentationCode}
+          onChange={(event) =>
+            handleFilterChange({ presentationCode: event.target.value })
+          }
+        />
+        <Select
+          id="filter-status"
+          label="Trạng thái"
+          options={STATUS_OPTIONS}
+          value={filters.riskState}
+          onChange={(event) =>
+            handleFilterChange({ riskState: event.target.value })
+          }
+        />
+      </section>
+
+      {stats !== null ? (
+        <section className={styles.summaryStrip} aria-label="Thống kê hàng đợi">
+          <StatCard
+            label="Đang gắn cờ"
+            value={stats.flaggedTotal}
+            note={`${stats.aboveThreshold} vượt ngưỡng 60%`}
+            accent="primary"
           />
-          <Select
-            id="filter-presentation"
-            label="Kỳ học"
-            options={PRESENTATION_OPTIONS}
-            value={filters.presentationCode}
-            onChange={(event) =>
-              handleFilterChange({ presentationCode: event.target.value })
-            }
+          <StatCard
+            label="Có điểm nguy cơ"
+            value={stats.scored}
+            accent="scored"
           />
-          <Select
-            id="filter-status"
-            label="Trạng thái"
-            options={STATUS_OPTIONS}
-            value={filters.riskState}
-            onChange={(event) =>
-              handleFilterChange({ riskState: event.target.value })
-            }
+          <StatCard
+            label="Thiếu dữ liệu"
+            value={stats.insufficientData}
+            accent="insufficient"
           />
-        </div>
-      </Card>
+          <StatCard
+            label="Cần xem xét thủ công"
+            value={stats.manualReview}
+            accent="manual"
+          />
+        </section>
+      ) : null}
 
       <div className={styles.tableRegion} aria-busy={loading}>
-        {loading ? (
-          <div className={styles.loadingBox}>
-            <Spinner label="Đang tải danh sách ưu tiên…" />
-          </div>
-        ) : error !== null ? (
-          <div className={styles.errorBox}>
-            <ErrorState
-              code={error.code}
-              message={error.message}
-              requestId={error.requestId}
-            />
-            <div className={styles.errorActions}>
-              <Button
-                variant="secondary"
-                onClick={() => setReloadToken((token) => token + 1)}
-              >
-                Thử lại
-              </Button>
+        <div className={styles.tableCard}>
+          {loading ? (
+            <div className={styles.loadingBox}>
+              <Spinner label="Đang tải danh sách ưu tiên…" />
             </div>
-          </div>
-        ) : rows.length === 0 ? (
-          <EmptyState title="Không có sinh viên nào khớp bộ lọc." />
-        ) : (
-          <>
-            <DataTable
-              columns={columns}
-              rows={rows}
-              getRowKey={(row) =>
-                `${row.codeModule}-${row.codePresentation}-${row.studentKey}`
-              }
-              caption="Danh sách sinh viên ưu tiên theo điểm gợi ý"
-            />
-            <p className={styles.tableNote}>
-              Tín hiệu được sắp theo mức đóng góp và thể hiện tương quan, không
-              phải quan hệ nhân quả.
-            </p>
-            <div className={styles.pagination}>
-              <span className={styles.rangeText}>
-                Hiển thị {rangeStart}–{rangeEnd} trên {totalLabel} sinh viên
-              </span>
-              <div className={styles.paginationActions}>
+          ) : error !== null ? (
+            <div className={styles.errorBox}>
+              <ErrorState
+                code={error.code}
+                message={error.message}
+                requestId={error.requestId}
+              />
+              <div className={styles.errorActions}>
                 <Button
                   variant="secondary"
-                  disabled={offset === 0}
-                  onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
+                  onClick={() => setReloadToken((token) => token + 1)}
                 >
-                  Trang trước
-                </Button>
-                <Button
-                  variant="secondary"
-                  disabled={!hasMore}
-                  onClick={() => setOffset(offset + PAGE_SIZE)}
-                >
-                  Trang sau
+                  Thử lại
                 </Button>
               </div>
             </div>
-          </>
-        )}
+          ) : rows.length === 0 ? (
+            <EmptyState title="Không có sinh viên nào khớp bộ lọc." />
+          ) : (
+            <>
+              <DataTable
+                columns={columns}
+                rows={rows}
+                getRowKey={rowKey}
+                caption="Danh sách sinh viên ưu tiên theo điểm gợi ý"
+              />
+              <div className={styles.tableFooter}>
+                <span className={styles.rangeText}>
+                  Hiển thị <strong>{rangeStart}–{rangeEnd}</strong> trên{' '}
+                  <strong>{totalLabel}</strong> sinh viên
+                </span>
+                <div className={styles.paginationActions}>
+                  <Button
+                    variant="secondary"
+                    disabled={offset === 0}
+                    onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
+                  >
+                    ← Trước
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    disabled={!hasMore}
+                    onClick={() => setOffset(offset + PAGE_SIZE)}
+                  >
+                    Sau →
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+        <p className={styles.cautionNote}>
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 16 16"
+            fill="none"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <path
+              d="M8 2L14.5 13.5H1.5L8 2z"
+              stroke="currentColor"
+              strokeWidth="1.4"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M8 6.5v3M8 11.3v.2"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            />
+          </svg>
+          Tín hiệu được sắp theo mức đóng góp và thể hiện tương quan, không
+          phải quan hệ nhân quả.
+        </p>
       </div>
     </div>
   );

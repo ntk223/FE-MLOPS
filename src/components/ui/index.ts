@@ -21,3 +21,5 @@ export { ErrorState } from './ErrorState';
 export type { ErrorStateProps } from './ErrorState';
 export { Spinner } from './Spinner';
 export type { SpinnerProps } from './Spinner';
+export { StatCard } from './StatCard';
+export type { StatCardAccent, StatCardProps } from './StatCard';

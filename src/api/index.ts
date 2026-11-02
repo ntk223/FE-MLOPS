@@ -30,8 +30,9 @@ export function createApiClient(): ILearnGuardApiClient {
     listPredictionsForStudent: (studentKey) =>
       real.listPredictionsForStudent(studentKey),
 
-    // Mock — chờ backend M6 (auth) và M8 (briefs).
+    // Mock — chờ backend M6 (auth), M8 (briefs) và stats endpoint.
     login: (credentials) => mock.login(credentials),
+    getQueueStats: (filters) => mock.getQueueStats(filters),
     generateBrief: (predictionId) => mock.generateBrief(predictionId),
     saveBriefDecision: (briefId, action, feedback) =>
       mock.saveBriefDecision(briefId, action, feedback),

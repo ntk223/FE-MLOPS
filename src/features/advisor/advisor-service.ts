@@ -3,7 +3,7 @@ import type {
   StudentFilters,
   StudentPrediction,
 } from '../../contracts/api';
-import type { ILearnGuardApiClient } from '../../api/client';
+import type { ILearnGuardApiClient, QueueStats } from '../../api/client';
 
 /**
  * Advisor-facing reads over the read-only ml_predictions API
@@ -15,6 +15,11 @@ export class AdvisorService {
 
   getPriorityQueue(filters: StudentFilters) {
     return this.api.listPredictions(filters);
+  }
+
+  /** Aggregated counts for the dashboard summary strip (mock-stage endpoint). */
+  getQueueStats(filters: StudentFilters): Promise<QueueStats> {
+    return this.api.getQueueStats(filters);
   }
 
   getStudentProfile(ref: PredictionRef): Promise<StudentPrediction> {

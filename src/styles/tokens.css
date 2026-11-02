@@ -18,13 +18,20 @@
   --color-ghost: transparent;
 
   /* ---- Neutrals ---- */
-  --color-bg: #f8fafc; /* slate-50 */
+  --color-bg: #f7f9fb; /* neutral page background (redesign) */
+  --color-bg-subtle: #fbfcfe; /* table head / footer tint */
+  --color-bg-muted: #f1f5f9; /* hover fills on light chrome */
+  --color-row-hover: #f6f9fb; /* table row hover highlight */
   --color-surface: #ffffff;
-  --color-border: #cbd5e1; /* slate-300 */
-  --color-border-strong: #94a3b8; /* slate-400 */
+  --color-border: #e2e8f0; /* slate-200 — light table/card hairlines */
+  --color-border-soft: #eef2f6; /* card edges, sidebar/topbar seams */
+  --color-border-strong: #cbd5e1; /* slate-300 — input + control borders */
   --color-text: #0f172a; /* slate-900 */
   --color-text-secondary: #334155; /* slate-700 */
   --color-text-muted: #475569; /* slate-600 */
+  --color-text-faint: #64748b; /* slate-500 — labels, table headers */
+  --color-text-placeholder: #94a3b8; /* slate-400 */
+  --color-text-disabled: #a3adb9; /* muted disabled nav items */
 
   /* ---- Semantic status colors (4 PredictionStatus values) ---- */
   /* scored — amber/warning: #92400E on #FEF3C7 (contrast ~7.9:1) */
@@ -43,6 +50,29 @@
   --status-no-prediction-bg: #fee2e2;
   --status-no-prediction-border: #dc2626;
   --status-no-prediction-text: #991b1b;
+  /* Softer pill borders used by badges (redesign §badges) */
+  --status-scored-soft-border: #fcd34d;
+  --status-insufficient-soft-border: #d1d5db;
+  --status-manual-soft-border: #c4b5fd;
+  --status-no-prediction-soft-border: #fca5a5;
+
+  /* ---- Stat-card accent per semantic status (3px top border) ---- */
+  --stat-accent-total: #0e7490; /* primary cyan */
+  --stat-accent-scored: #f59e0b; /* amber-500 */
+  --stat-accent-insufficient: #9ca3af; /* gray-400 */
+  --stat-accent-manual: #7c3aed; /* violet-600 */
+  --stat-accent-no-prediction: #dc2626; /* red-600 */
+
+  /* ---- Risk-bar scale (teal → amber → red by proximity to threshold) ---- */
+  --risk-track: #e8edf2;
+  --risk-teal-from: #0e7490;
+  --risk-teal-to: #0891b2;
+  --risk-amber-from: #b45309;
+  --risk-amber-to: #d97706;
+  --risk-red-from: #b91c1c;
+  --risk-red-to: #dc2626;
+  --risk-marker: #dc2626;
+  --risk-marker-text: #b91c1c;
 
   /* ---- Feedback ---- */
   --color-error: #b91c1c;
@@ -61,20 +91,20 @@
   --space-12: 48px;
   --space-16: 64px;
 
-  /* ---- Radius ---- */
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 10px;
+  /* ---- Radius (redesign: 8–12px) ---- */
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
   --radius-full: 9999px;
 
-  /* ---- Shadow ---- */
-  --shadow-sm: 0 1px 2px 0 rgb(15 23 42 / 0.08);
-  --shadow-md: 0 2px 8px 0 rgb(15 23 42 / 0.12);
-  --shadow-lg: 0 8px 24px 0 rgb(15 23 42 / 0.16);
+  /* ---- Shadow (two-tier, slate-based) ---- */
+  --shadow-sm: 0 1px 2px 0 rgb(15 23 42 / 0.06);
+  --shadow-md: 0 2px 8px 0 rgb(15 23 42 / 0.1);
+  --shadow-lg: 0 8px 24px 0 rgb(15 23 42 / 0.14);
 
   /* ---- Typography ---- */
   --font-family: 'Inter', 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial,
-    'Noto Sans', sans-serif;
+    'Noto Sans', system-ui, sans-serif;
   --font-size-xs: 0.75rem;
   --font-size-sm: 0.8125rem;
   --font-size-base: 0.9375rem;
@@ -90,5 +120,6 @@
   /* ---- Layout ---- */
   --sidebar-width: 248px;
   --topbar-height: 60px;
-  --focus-ring: 0 0 0 3px rgb(14 116 144 / 0.4);
+  --focus-ring: 0 0 0 3px rgb(14 116 144 / 0.35);
+  --ease: cubic-bezier(0.23, 1, 0.32, 1);
 }

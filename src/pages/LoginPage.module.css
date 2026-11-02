@@ -1,51 +1,78 @@
-/* Page-scoped styles for the login screen (S1). */
+/* Page-scoped styles for the login screen (S1).
+   Faithful to docs/design/learnguard-redesign.html — "S1 · Đăng nhập" (2026-11):
+   gradient + dot-grid background, brand row with gradient logo mark,
+   inline error state, elevated centered card, dashed demo-hint box. */
 
 .page {
+  position: relative;
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--space-6);
-  background: linear-gradient(
-    160deg,
-    var(--color-primary-soft) 0%,
-    var(--color-bg) 55%,
-    var(--color-bg) 100%
-  );
+  padding: var(--space-16) var(--space-8);
+  background:
+    radial-gradient(900px 480px at 18% -10%, rgb(14 116 144 / 0.16), transparent 60%),
+    radial-gradient(800px 460px at 88% 110%, rgb(30 64 175 / 0.12), transparent 62%),
+    linear-gradient(160deg, #f0f7f9 0%, #f7f9fb 48%, #eef3f9 100%);
   font-family: var(--font-family);
 }
 
+/* Faint teal grid layer, radially masked so it fades out from the card. */
+.grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgb(14 116 144 / 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(14 116 144 / 0.045) 1px, transparent 1px);
+  background-size: 48px 48px;
+  -webkit-mask-image: radial-gradient(720px 520px at 50% 46%, #000 30%, transparent 78%);
+  mask-image: radial-gradient(720px 520px at 50% 46%, #000 30%, transparent 78%);
+  pointer-events: none;
+}
+
 .card {
+  position: relative;
   width: 100%;
-  max-width: 400px;
+  max-width: 448px;
   background-color: var(--color-surface);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-soft);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
-  padding: var(--space-8) var(--space-6);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-10) var(--space-10) var(--space-8);
 }
 
 .header {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  text-align: center;
   gap: var(--space-2);
   margin-bottom: var(--space-6);
 }
 
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+/* "LG" mark: cyan-700 → cyan-900 gradient with a colored elevation shadow. */
 .logo {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 48px;
-  height: 48px;
-  border-radius: var(--radius-md);
-  background-color: var(--color-primary);
+  width: 52px;
+  height: 52px;
+  flex: none;
+  border-radius: 12px;
+  background: linear-gradient(
+    140deg,
+    var(--color-primary) 0%,
+    var(--color-primary-active) 100%
+  );
   color: var(--color-on-primary);
   font-weight: var(--font-weight-bold);
-  font-size: var(--font-size-lg);
+  font-size: 20px;
   letter-spacing: 0.02em;
+  box-shadow: 0 4px 12px rgb(14 116 144 / 0.35);
 }
 
 .title {
@@ -53,23 +80,50 @@
   font-size: var(--font-size-xl);
   font-weight: var(--font-weight-bold);
   color: var(--color-text);
+  letter-spacing: -0.01em;
+}
+
+.titleAccent {
+  color: var(--color-primary);
 }
 
 .tagline {
   margin: 0;
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
-  line-height: var(--line-height);
+  line-height: 1.55;
 }
 
+/* Submit-level error banner: light-red filled background + inline icon. */
 .formError {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   margin: 0 0 var(--space-4);
   padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-error);
-  border-radius: var(--radius-md);
+  border: 1px solid var(--status-no-prediction-soft-border);
+  border-radius: var(--radius-sm);
   background-color: var(--color-error-bg);
   color: var(--color-error);
   font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+/* Inline error icon for the form banner and per-field alerts.
+   Masked shape inherits currentColor, so it stays red on both. */
+.formError::before,
+.fieldStack span[role='alert']::before {
+  content: '';
+  flex: none;
+  width: 13px;
+  height: 13px;
+  background-color: currentColor;
+  -webkit-mask-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'%3E%3Ccircle cx='8' cy='8' r='6.5' stroke='%23000' stroke-width='1.5'/%3E%3Cpath d='M8 5v3.5M8 10.8v.2' stroke='%23000' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'%3E%3Ccircle cx='8' cy='8' r='6.5' stroke='%23000' stroke-width='1.5'/%3E%3Cpath d='M8 5v3.5M8 10.8v.2' stroke='%23000' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E");
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: contain;
+  mask-size: contain;
 }
 
 .fieldStack {
@@ -80,22 +134,34 @@
 
 .submitButton {
   width: 100%;
-  margin-top: var(--space-2);
+  height: 44px;
+  margin-top: var(--space-1);
+  font-size: 15px;
 }
 
+/* Demo-hint box: dashed frame, uppercase title, credential <code> chips. */
 .demoBox {
   margin-top: var(--space-6);
-  padding: var(--space-3) var(--space-4);
-  border: 1px dashed var(--color-border);
-  border-radius: var(--radius-md);
-  background-color: var(--color-bg);
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
+  padding: var(--space-3) 14px;
+  border: 1.5px dashed var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background-color: #f8fafc;
 }
 
 .demoTitle {
-  margin: 0 0 var(--space-1);
-  font-weight: var(--font-weight-semibold);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 var(--space-2);
+  font-size: 12px;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-faint);
+}
+
+.demoTitle svg {
+  flex: none;
 }
 
 .demoList {
@@ -107,7 +173,45 @@
   gap: var(--space-1);
 }
 
-.demoCode {
-  font-family: monospace;
+.demoItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  padding: 3px 0;
+  font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
+}
+
+.demoRole {
+  font-weight: var(--font-weight-medium);
+}
+
+.demoCreds {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.demoCode {
+  font-family: 'SF Mono', 'Cascadia Code', Consolas, monospace;
+  font-size: 12.5px;
+  color: var(--color-primary-hover);
+  background-color: var(--color-primary-soft);
+  border-radius: 4px;
+  padding: 1px 6px;
+  white-space: nowrap;
+}
+
+/* Compact card padding on small screens. */
+@media (max-width: 480px) {
+  .page {
+    padding: var(--space-6) var(--space-4);
+  }
+
+  .card {
+    padding: var(--space-6) var(--space-5);
+  }
 }

@@ -89,12 +89,17 @@ export function LoginPage({ onSubmit }: LoginPageProps): ReactElement {
 
   return (
     <div className={styles.page}>
+      <div className={styles.grid} aria-hidden="true" />
       <div className={styles.card}>
         <header className={styles.header}>
-          <span className={styles.logo} aria-hidden="true">
-            LG
-          </span>
-          <h1 className={styles.title}>LearnGuard</h1>
+          <div className={styles.brand}>
+            <span className={styles.logo} aria-hidden="true">
+              LG
+            </span>
+            <h1 className={styles.title}>
+              Learn<span className={styles.titleAccent}>Guard</span>
+            </h1>
+          </div>
           <p className={styles.tagline}>
             Hỗ trợ phát hiện sớm sinh viên có nguy cơ không hoàn thành học phần
           </p>
@@ -138,13 +143,31 @@ export function LoginPage({ onSubmit }: LoginPageProps): ReactElement {
 
         {useMock ? (
           <aside className={styles.demoBox}>
-            <p className={styles.demoTitle}>Tài khoản demo (chế độ mock)</p>
+            <p className={styles.demoTitle}>
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 16 16"
+                fill="none"
+                aria-hidden="true"
+              >
+                <path
+                  d="M8 1.5l1.7 3.9 4.3.4-3.2 2.8 1 4.2L8 10.6l-3.8 2.2 1-4.2L2 5.8l4.3-.4L8 1.5z"
+                  stroke="currentColor"
+                  strokeWidth="1.3"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              Tài khoản demo (chế độ mock)
+            </p>
             <ul className={styles.demoList}>
               {DEMO_ACCOUNTS.map((account) => (
                 <li key={account.email} className={styles.demoItem}>
-                  <span className={styles.demoRole}>{account.role}:</span>{' '}
-                  <code className={styles.demoCode}>{account.email}</code> /{' '}
-                  <code className={styles.demoCode}>{account.password}</code>
+                  <span className={styles.demoRole}>{account.role}</span>
+                  <span className={styles.demoCreds}>
+                    <code className={styles.demoCode}>{account.email}</code>
+                    <code className={styles.demoCode}>{account.password}</code>
+                  </span>
                 </li>
               ))}
             </ul>
