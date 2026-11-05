@@ -2,6 +2,8 @@ import type {
   AdvisorBrief,
   AdvisorSession,
   ApiError,
+  BriefDecision,
+  BriefEdits,
   PredictionPage,
   PredictionRef,
   StudentFilters,
@@ -17,8 +19,8 @@ import { MOCK_BRIEFS, MOCK_STUDENTS } from './data';
 /**
  * Mock implementation of the ILearnGuardApiClient contract.
  * Simulates realistic latency (300–700ms) and mirrors docs/API_CONTRACT.md
- * so the UI can be developed contract-first. Auth and briefs live here only
- * until the backend ships M6/M8.
+ * so the UI can be developed contract-first. Chỉ còn auth (M6) là mock-only;
+ * briefs đã có real API (M8) nhưng mock giữ nguyên cho chế độ demo.
  */
 export class MockApiClient implements ILearnGuardApiClient {
   private students: StudentPrediction[];
@@ -149,23 +151,39 @@ export class MockApiClient implements ILearnGuardApiClient {
     return found;
   }
 
-  async generateBrief(predictionId: number): Promise<AdvisorBrief> {
+  /**
+   * Hành vi tham chiếu giữ nguyên cho demo: regenerate cùng 1 dự đoán
+   * (so khớp PK composite) → version + 1, status 'generated'.
+   */
+  async generateBrief(ref: PredictionRef): Promise<AdvisorBrief> {
     await this.delay();
 
-    const student = this.students[predictionId % this.students.length];
+    const student = this.students.find(
+      (candidate) =>
+        candidate.codeModule === ref.codeModule &&
+        candidate.codePresentation === ref.codePresentation &&
+        candidate.studentKey === ref.studentKey,
+    );
     if (!student) {
       throw this.error('PREDICTION_NOT_FOUND', 'Không tìm thấy dự đoán.');
     }
 
     const existing = this.briefs.find(
-      (brief) => brief.predictionId === predictionId && brief.status !== 'rejected',
+      (brief) =>
+        brief.codeModule === ref.codeModule &&
+        brief.codePresentation === ref.codePresentation &&
+        brief.studentKey === ref.studentKey &&
+        brief.status !== 'rejected',
     );
     const version = existing ? existing.version + 1 : 1;
     const briefId = existing ? existing.briefId : this.nextBriefId++;
+    const editedAt: string | null = null;
 
     const brief: AdvisorBrief = {
       briefId,
-      predictionId,
+      codeModule: ref.codeModule,
+      codePresentation: ref.codePresentation,
+      studentKey: ref.studentKey,
       version,
       status: 'generated',
       summary:
@@ -186,6 +204,7 @@ export class MockApiClient implements ILearnGuardApiClient {
         'Các tín hiệu chỉ thể hiện tương quan, không phải quan hệ nhân quả.',
         'Nội dung đang tạo bởi mock client — backend M8 chưa có endpoint.',
       ],
+      editedAt,
     };
 
     this.briefs = [
@@ -195,11 +214,52 @@ export class MockApiClient implements ILearnGuardApiClient {
     return brief;
   }
 
+  /**
+   * PUT /briefs/{brief_id} (§1.10) — hành vi demo: chỉ sửa nội dung,
+   * KHÔNG đổi version/status/decision, set editedAt = now.
+   */
+  async editBrief(briefId: number, edits: BriefEdits): Promise<AdvisorBrief> {
+    await this.delay();
+
+    const index = this.briefs.findIndex((brief) => brief.briefId === briefId);
+    if (index === -1) {
+      throw this.error('BRIEF_NOT_FOUND', 'Không tìm thấy bản tóm tắt tư vấn.');
+    }
+
+    const current = this.briefs[index];
+    const updated: AdvisorBrief = {
+      ...current,
+      summary: edits.summary ?? current.summary,
+      reasons:
+        edits.reasons !== undefined
+          ? edits.reasons.map((reason) => ({
+              text: reason.text,
+              evidenceFeatures: [...reason.evidenceFeatures],
+            }))
+          : current.reasons,
+      supportSuggestions:
+        edits.supportSuggestions !== undefined
+          ? [...edits.supportSuggestions]
+          : current.supportSuggestions,
+      limitations:
+        edits.limitations !== undefined
+          ? [...edits.limitations]
+          : current.limitations,
+      editedAt: new Date().toISOString(),
+    };
+
+    this.briefs = [
+      ...this.briefs.slice(0, index),
+      updated,
+      ...this.briefs.slice(index + 1),
+    ];
+    return updated;
+  }
+
   async saveBriefDecision(
     briefId: number,
-    action: 'accept' | 'reject',
-    feedback?: string,
-  ): Promise<AdvisorBrief> {
+    decision: 'accepted' | 'rejected',
+  ): Promise<BriefDecision> {
     await this.delay();
 
     const index = this.briefs.findIndex((brief) => brief.briefId === briefId);
@@ -209,18 +269,19 @@ export class MockApiClient implements ILearnGuardApiClient {
 
     const updated: AdvisorBrief = {
       ...this.briefs[index],
-      status: action === 'accept' ? 'accepted' : 'rejected',
+      status: decision === 'accepted' ? 'accepted' : 'rejected',
     };
-    if (feedback !== undefined) {
-      updated.limitations = [...updated.limitations, `Phản hồi cố vấn: ${feedback}`];
-    }
 
     this.briefs = [
       ...this.briefs.slice(0, index),
       updated,
       ...this.briefs.slice(index + 1),
     ];
-    return updated;
+    return {
+      briefId,
+      decision,
+      decidedAt: new Date().toISOString(),
+    };
   }
 
   /** Filter the mock dataset exactly like the backend list endpoint. */

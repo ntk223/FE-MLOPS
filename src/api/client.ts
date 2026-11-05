@@ -1,6 +1,9 @@
 import type {
   AdvisorBrief,
   AdvisorSession,
+  BriefDecision,
+  BriefEdits,
+  BriefStatus,
   PredictionPage,
   PredictionRef,
   PredictionSignal,
@@ -37,8 +40,8 @@ export interface QueueStats {
 
 /**
  * Contract shared by the real client and the mock client
- * (docs/API_CONTRACT.md v1.0). Auth and briefs exist only on the mock until
- * the backend ships M6 auth and M8 brief endpoints.
+ * (docs/API_CONTRACT.md v1.1). Auth vẫn chỉ có ở mock cho đến khi backend
+ * ships M6; briefs đã chạy real API (M8).
  */
 export interface ILearnGuardApiClient {
   login(credentials: LoginCredentials): Promise<AdvisorSession>;
@@ -46,12 +49,17 @@ export interface ILearnGuardApiClient {
   getQueueStats(filters: StudentFilters): Promise<QueueStats>;
   getPrediction(ref: PredictionRef): Promise<StudentPrediction>;
   listPredictionsForStudent(studentKey: string): Promise<PredictionPage>;
-  generateBrief(predictionId: number): Promise<AdvisorBrief>;
+  /** Định danh dự đoán = PK composite (không có predictionId numeric). */
+  generateBrief(ref: PredictionRef): Promise<AdvisorBrief>;
+  /**
+   * PUT /briefs/{brief_id} — chỉnh sửa nội dung brief (§1.10). Không đổi
+   * version (chỉ regenerate mới tăng), không đổi status/decision.
+   */
+  editBrief(briefId: number, edits: BriefEdits): Promise<AdvisorBrief>;
   saveBriefDecision(
     briefId: number,
-    action: 'accept' | 'reject',
-    feedback?: string,
-  ): Promise<AdvisorBrief>;
+    decision: 'accepted' | 'rejected',
+  ): Promise<BriefDecision>;
 }
 
 const REQUEST_TIMEOUT_MS = 15_000;
@@ -83,7 +91,8 @@ interface RawPrediction {
   model_version: string;
   snapshot_version: string;
   cutoff_day: number;
-  top_signals_json: string | null;
+  /** Backend trả array đã parse (API_CONTRACT v1.1 §1.5). Nhận cả string cho phòng thủ. */
+  top_signals?: unknown;
   /** Backend đã parse features_json thành object trước khi trả. */
   features?: Record<string, number | null> | null;
   run_id: string;
@@ -95,6 +104,102 @@ interface RawPage {
   total: number;
   limit: number;
   offset: number;
+}
+
+/** BriefOut của backend (POST /briefs/generate, GET /briefs/{brief_id}). */
+interface RawBrief {
+  brief_id: number;
+  code_module: string;
+  code_presentation: string;
+  student_key: string;
+  version: number;
+  status: string;
+  summary: string;
+  reasons: Array<{ text?: unknown; evidence_features?: unknown }> | null;
+  support_suggestions: unknown;
+  limitations: unknown;
+  model_name?: string | null;
+  latency_ms?: number | null;
+  created_at?: string | null;
+  /** PUT/GET briefs trả edited_at (§1.10); generate có thể không gửi — optional. */
+  edited_at?: string | null;
+}
+
+/** Body PUT /briefs/{brief_id} — snake_case (docs/API_CONTRACT.md §1.10). */
+interface RawBriefEdits {
+  summary?: string;
+  reasons?: Array<{ text: string; evidence_features: string[] }>;
+  support_suggestions?: string[];
+  limitations?: string[];
+}
+
+/** Kết quả POST /briefs/{brief_id}/decision. */
+interface RawBriefDecision {
+  brief_id: number;
+  decision: string;
+  decided_at: string;
+}
+
+const BRIEF_BACKEND_STATUSES: readonly BriefStatus[] = [
+  'generated',
+  'fallback_review',
+  'unavailable',
+];
+
+/** Lọc defensively reasons — entry thiếu text/evidence không làm crash UI. */
+function sanitizeBriefReasons(
+  raw: RawBrief['reasons'],
+): Array<{ text: string; evidenceFeatures: string[] }> {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+  const reasons: Array<{ text: string; evidenceFeatures: string[] }> = [];
+  for (const entry of raw) {
+    if (typeof entry !== 'object' || entry === null) {
+      continue;
+    }
+    const record = entry as Record<string, unknown>;
+    if (typeof record['text'] !== 'string') {
+      continue;
+    }
+    const evidence = Array.isArray(record['evidence_features'])
+      ? record['evidence_features'].filter(
+          (name): name is string => typeof name === 'string',
+        )
+      : [];
+    reasons.push({ text: record['text'], evidenceFeatures: evidence });
+  }
+  return reasons;
+}
+
+/** Lọc defensively mảng string (support_suggestions / limitations). */
+function sanitizeStringList(raw: unknown): string[] {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+  return raw.filter((item): item is string => typeof item === 'string');
+}
+
+function toBrief(raw: RawBrief): AdvisorBrief {
+  const status = BRIEF_BACKEND_STATUSES.includes(raw.status as BriefStatus)
+    ? (raw.status as BriefStatus)
+    : 'unavailable';
+  return {
+    briefId: raw.brief_id,
+    codeModule: raw.code_module,
+    codePresentation: raw.code_presentation,
+    studentKey: raw.student_key,
+    version: raw.version,
+    status,
+    summary: raw.summary,
+    reasons: sanitizeBriefReasons(raw.reasons),
+    supportSuggestions: sanitizeStringList(raw.support_suggestions),
+    limitations: sanitizeStringList(raw.limitations),
+    modelName: raw.model_name ?? null,
+    latencyMs: raw.latency_ms ?? null,
+    createdAt: raw.created_at ?? null,
+    editedAt: raw.edited_at ?? null,
+  };
 }
 
 const STATUSES: readonly PredictionStatus[] = [
@@ -129,15 +234,18 @@ function sanitizeFeatures(
 }
 
 /** Parse top_signals_json defensively — a malformed payload never crashes UI. */
-function parseTopSignals(raw: string | null): PredictionSignal[] {
-  if (!raw) {
-    return [];
-  }
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    return [];
+function parseTopSignals(raw: unknown): PredictionSignal[] {
+  let parsed: unknown = raw;
+  if (typeof raw === 'string') {
+    // Tương thích hợp cũ: một số phiên bản backend trả JSON string.
+    if (!raw) {
+      return [];
+    }
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return [];
+    }
   }
   if (!Array.isArray(parsed)) {
     return [];
@@ -191,7 +299,7 @@ function toPrediction(raw: RawPrediction): StudentPrediction {
     modelVersion: raw.model_version,
     snapshotVersion: raw.snapshot_version,
     cutoffDay: raw.cutoff_day,
-    topSignals: parseTopSignals(raw.top_signals_json),
+    topSignals: parseTopSignals(raw.top_signals),
     features: sanitizeFeatures(raw.features),
     runId: raw.run_id,
     scoredAt: raw.scored_at,
@@ -270,27 +378,81 @@ export class LearnGuardApiClient implements ILearnGuardApiClient {
     return toPrediction(raw);
   }
 
-  async generateBrief(_predictionId: number): Promise<AdvisorBrief> {
-    // Backend M8 briefs chưa triển khai — docs/API_CONTRACT.md §2.
-    throw new BackendNotImplementedError('briefs/generate');
+  async generateBrief(ref: PredictionRef): Promise<AdvisorBrief> {
+    // POST /briefs/generate — backend M8. LLM lỗi backend vẫn trả 200 với
+    // status 'fallback_review'/'unavailable' (docs/API_CONTRACT.md §1.7).
+    const raw = await this.request<RawBrief>('/briefs/generate', {
+      method: 'POST',
+      body: {
+        code_module: ref.codeModule,
+        code_presentation: ref.codePresentation,
+        student_key: ref.studentKey,
+      },
+    });
+    return toBrief(raw);
+  }
+
+  async editBrief(briefId: number, edits: BriefEdits): Promise<AdvisorBrief> {
+    // PUT /briefs/{brief_id} — body snake_case, ít nhất 1 trường (§1.10).
+    // Chỉ gửi các trường cố vấn thực sự chỉnh (evidence_features giữ nguyên).
+    const body: RawBriefEdits = {};
+    if (edits.summary !== undefined) {
+      body.summary = edits.summary;
+    }
+    if (edits.reasons !== undefined) {
+      body.reasons = edits.reasons.map((reason) => ({
+        text: reason.text,
+        evidence_features: [...reason.evidenceFeatures],
+      }));
+    }
+    if (edits.supportSuggestions !== undefined) {
+      body.support_suggestions = [...edits.supportSuggestions];
+    }
+    if (edits.limitations !== undefined) {
+      body.limitations = [...edits.limitations];
+    }
+    const raw = await this.request<RawBrief>(
+      `/briefs/${encodeURIComponent(String(briefId))}`,
+      { method: 'PUT', body },
+    );
+    return toBrief(raw);
   }
 
   async saveBriefDecision(
-    _briefId: number,
-    _action: 'accept' | 'reject',
-    _feedback?: string,
-  ): Promise<AdvisorBrief> {
-    throw new BackendNotImplementedError('briefs/decision');
+    briefId: number,
+    decision: 'accepted' | 'rejected',
+  ): Promise<BriefDecision> {
+    // POST /briefs/{brief_id}/decision — body {"decision": "accepted"|"rejected"}.
+    const raw = await this.request<RawBriefDecision>(
+      `/briefs/${encodeURIComponent(String(briefId))}/decision`,
+      {
+        method: 'POST',
+        body: { decision },
+      },
+    );
+    return {
+      briefId: raw.brief_id,
+      decision: raw.decision === 'rejected' ? 'rejected' : 'accepted',
+      decidedAt: raw.decided_at,
+    };
   }
 
-  private async request<T>(path: string): Promise<T> {
+  private async request<T>(
+    path: string,
+    init?: { method?: 'POST' | 'PUT'; body?: unknown },
+  ): Promise<T> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeoutMs);
     let response: Response;
     try {
       response = await fetch(`${this.baseUrl}${path}`, {
+        method: init?.method ?? 'GET',
         signal: controller.signal,
-        headers: { Accept: 'application/json' },
+        headers:
+          init?.body !== undefined
+            ? { Accept: 'application/json', 'Content-Type': 'application/json' }
+            : { Accept: 'application/json' },
+        body: init?.body === undefined ? undefined : JSON.stringify(init.body),
       });
     } catch (cause) {
       // AbortError bọc cả timeout; network fail cũng vào đây.

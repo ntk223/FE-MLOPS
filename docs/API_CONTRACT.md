@@ -1,6 +1,6 @@
 # LearnGuard — API Contract Frontend ↔ Backend
 
-> **Phiên bản:** 1.0 (2026-10-30)
+> **Phiên bản:** 1.1 (2026-11-06)
 > **Nguồn chân lý:** backend OpenAPI tự sinh tại `GET /docs` (FastAPI) + `backend/docs/DB_CONTRACT.md` v1.0 rev2.
 > **Nguyên tắc:** frontend chỉ gọi REST API; không đụng DB, model registry, LLM.
 
@@ -72,7 +72,7 @@ Toàn bộ dự đoán của 1 sinh viên (có thể nhiều học phần), sort
 | `model_version` | `modelVersion` | string |
 | `snapshot_version` | `snapshotVersion` | string |
 | `cutoff_day` | `cutoffDay` | number |
-| `top_signals_json` | `topSignals` | **backend trả JSON string; frontend parse** → `Signal[]` |
+| `top_signals` | `topSignals` | **backend trả array đã parse** → `Signal[]` (client nhận thêm JSON string cho phòng thủ) |
 | `run_id` | `runId` | string |
 | `scored_at` | `scoredAt` | ISO-8601 string \| null |
 
@@ -89,12 +89,106 @@ interface ApiError { code: string; message: string; requestId?: string }
 
 ---
 
+## 1.7 `POST /briefs/generate` — tạo/regenerate brief tư vấn (M8) ✅
+
+JSON body (PK composite của ml_predictions):
+
+```json
+{ "code_module": "DDD", "code_presentation": "2014B", "student_key": "abc…" }
+```
+
+Response 200 — `BriefOut`:
+
+```json
+{
+  "brief_id": 1,
+  "code_module": "DDD",
+  "code_presentation": "2014B",
+  "student_key": "abc…",
+  "version": 1,
+  "status": "generated",
+  "summary": "…",
+  "reasons": [{ "text": "…", "evidence_features": ["feature_name"] }],
+  "support_suggestions": ["…"],
+  "limitations": ["…"],
+  "model_name": "gemini/gemini-3.1-flash-lite",
+  "latency_ms": 1234,
+  "created_at": "2026-11-06T…"
+}
+```
+
+- `status` ∈ `generated` \| `fallback_review` \| `unavailable` — **backend KHÔNG bao giờ trả 500 vì lỗi LLM**: LLM lỗi → 200 với `fallback_review` (brief dự phòng theo mẫu) hoặc `unavailable` (không có nội dung).
+- Regenerate cùng 1 dự đoán → backend tự `version + 1`.
+- Lỗi: 404 `{"detail": "prediction_not_found"}` (không có dự đoán), 503 DB.
+
+## 1.8 `GET /briefs/{brief_id}` ✅
+
+Cùng shape `BriefOut` như §1.7. 404 nếu không tồn tại.
+
+## 1.9 `POST /briefs/{brief_id}/decision` — ghi nhận quyết định cố vấn ✅
+
+Body: `{"decision": "accepted"}` hoặc `{"decision": "rejected"}` (400 nếu giá trị khác).
+
+Response 200:
+
+```json
+{ "brief_id": 1, "decision": "accepted", "decided_at": "2026-11-06T…" }
+```
+
+Mapping snake_case ↔ camelCase (brief):
+
+| Backend | Frontend | Ghi chú |
+|---|---|---|
+| `brief_id` | `briefId` | number |
+| `code_module` / `code_presentation` / `student_key` | `codeModule` / `codePresentation` / `studentKey` | PK composite của dự đoán liên quan |
+| `version` | `version` | tăng mỗi lần regenerate |
+| `status` | `status` | 3 giá trị §1.7 (+ `accepted`/`rejected` chỉ ở mock demo) |
+| `reasons[].evidence_features` | `reasons[].evidenceFeatures` | string[] |
+| `support_suggestions` / `limitations` | `supportSuggestions` / `limitations` | string[] |
+| `model_name` | `modelName` | tuỳ chọn |
+| `latency_ms` | `latencyMs` | tuỳ chọn |
+| `created_at` | `createdAt` | ISO-8601 |
+| `edited_at` (§1.10) | `editedAt` | ISO-8601 \| null — thời điểm sửa nội dung lần cuối |
+| `decided_at` (decision) | `decidedAt` (`BriefDecision`) | ISO-8601 |
+
+Frontend parse phòng thủ giống §1.5: reasons/suggestions/limitations hỏng shape → rỗng, không crash. `fallback_review`/`unavailable` hiển thị nhãn riêng "Brief dự phòng — LLM không khả dụng", không giả vờ là brief do LLM sinh.
+
+## 1.10 `PUT /briefs/{brief_id}` — chỉnh sửa nội dung brief (M8) ✅
+
+JSON body — **tất cả trường optional nhưng phải có ít nhất 1 trường**:
+
+```json
+{
+  "summary": "…",
+  "reasons": [{ "text": "…", "evidence_features": ["feature_name"] }],
+  "support_suggestions": ["…"],
+  "limitations": ["…"]
+}
+```
+
+Response 200 — cùng shape `BriefOut` như §1.7, kèm thêm trường `edited_at`:
+
+| Backend | Frontend | Ghi chú |
+|---|---|---|
+| `edited_at` | `editedAt` | ISO-8601 \| null — `null` nếu brief chưa từng được sửa |
+
+Ý nghĩa:
+
+- Edit **KHÔNG đổi** `version` (version chỉ tăng khi regenerate LLM), **KHÔNG đổi** `status`/decision.
+- Regenerate (LLM mới) reset `edited_at` về `null`.
+- `GET /briefs/{brief_id}` cũng trả `edited_at`.
+
+Lỗi: 400 body sai/rỗng (`{"detail": …}`), 404 brief không tồn tại. Frontend parse `edited_at` phòng thủ như các trường khác (thiếu → `null`, không crash).
+
+---
+
 ## 2. Tính năng backend CHƯA có — frontend chạy MOCK, không đụng API thật
 
 | Tính năng | Backend | Quy ước frontend đến khi backend sẵn sàng |
 |---|---|---|
 | **Auth** (POST /auth/login, JWT, RBAC) | ❌ TODO M6 | `LearnGuardApiClient.login()` ném `BACKEND_NOT_IMPLEMENTED`; UI dùng mock login (`VITE_USE_MOCK`), session client-side. **Không gửi credential thật đi đâu cả.** |
-| **Briefs** (generate/read/edit/decide, M8) | ❌ TODO M8 | `generateBrief`/`saveBriefDecision` trên real client ném `BACKEND_NOT_IMPLEMENTED`; trang chi tiết hiển thị brief từ mock kèm nhãn "Chế độ demo". |
+| **Briefs** (generate/read/decide, M8) | ✅ Đã có (§1.7–§1.9) | Real mode: `generateBrief`/`saveBriefDecision` gọi thẳng `/briefs/*`; `fallback_review`/`unavailable` hiển thị nhãn "Brief dự phòng — LLM không khả dụng". Mock mode (demo) giữ mock briefs. |
+| **Brief edit** (PUT /briefs/{brief_id}, §1.10) | ✅ Đã có (§1.10) | Real mode: `editBrief` gọi thẳng `PUT /briefs/{id}` (edit không đổi version/status; `edited_at` reset về null khi regenerate). Mock mode giữ hành vi demo tương ứng. |
 | **Admin import/batches** | ❌ | Không có UI. |
 
 Khi backend bổ sung endpoint, cập nhật mục này + `contracts/api.ts` theo đúng trình tự: backend merge → OpenAPI review → frontend sync. Frontend không tự chế endpoint.
@@ -109,7 +203,7 @@ Khi backend bổ sung endpoint, cập nhật mục này + `contracts/api.ts` the
 | Login/session expiry/logout | 🟡 mock — chờ backend M6 |
 | Priority queue, filters, pagination | ✅ real API (sort mặc định `risk_score` DESC do backend) |
 | Student profile: disclaimer, signal attribution, uncertainty | ✅ real API |
-| Brief generate/read/edit/accept/reject | 🟡 mock — chờ backend M8 |
+| Brief generate/read/edit/accept/reject | ✅ real API M8 (generate + decide + GET read + edit `PUT /briefs/{id}` §1.10) |
 | States: insufficient-data, manual-review, API error | ✅ đủ 4 status + error states |
 | Route advisor-only | ✅ client-side guard (backend auth chờ M6) |
 | Component tests, a11y, container | ⬜ TODO tiếp theo |

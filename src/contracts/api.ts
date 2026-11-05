@@ -1,5 +1,5 @@
 /**
- * API contract — aligned with the real backend (docs/API_CONTRACT.md v1.0).
+ * API contract — aligned with the real backend (docs/API_CONTRACT.md v1.1).
  *
  * Source of truth: backend OpenAPI (GET /docs) at VITE_BACKEND_API_URL.
  * Field naming: backend returns snake_case; this layer maps to camelCase.
@@ -85,18 +85,66 @@ export interface PredictionRef {
 }
 
 /**
- * Brief workflow — hiện CHỈ có ở mock client (backend M8 chưa triển khai,
- * xem docs/API_CONTRACT.md §2).
+ * Trạng thái brief trả về từ backend (BriefOut, M8):
+ * - `generated`: LLM sinh brief thành công.
+ * - `fallback_review`: LLM lỗi → backend trả brief dự phòng (template) cho
+ *   cố vấn tự xem xét — backend KHÔNG bao giờ trả 500 vì lỗi LLM.
+ * - `unavailable`: LLM không cấu hình/không phản hồi — không có nội dung brief.
+ * `accepted`/`rejected` chỉ tồn tại ở mock client (demo workflow); backend
+ * theo dõi quyết định riêng qua `POST /briefs/{id}/decision` (BriefDecision).
+ */
+export type BriefStatus =
+  | 'generated'
+  | 'fallback_review'
+  | 'unavailable'
+  | 'accepted'
+  | 'rejected';
+
+/**
+ * Brief tư vấn — khớp BriefOut của backend (docs/API_CONTRACT.md §1.7).
+ * Định danh dự đoán liên quan = PK composite (không có predictionId numeric
+ * trong API thật).
  */
 export interface AdvisorBrief {
   briefId: number;
-  predictionId: number;
+  codeModule: string;
+  codePresentation: string;
+  studentKey: string;
+  /** Backend tự tăng mỗi lần regenerate cùng 1 dự đoán. */
   version: number;
-  status: string;
+  status: BriefStatus;
   summary: string;
   reasons: Array<{ text: string; evidenceFeatures: string[] }>;
   supportSuggestions: string[];
   limitations: string[];
+  /** Tên model LLM đã dùng (ví dụ "gemini/gemini-3.1-flash-lite"). */
+  modelName?: string | null;
+  latencyMs?: number | null;
+  createdAt?: string | null;
+  /**
+   * Thời điểm cố vấn sửa nội dung brief lần cuối (PUT /briefs/{id}, §1.10).
+   * null/undefined nếu chưa từng sửa; regenerate (LLM mới) reset về null.
+   */
+  editedAt?: string | null;
+}
+
+/**
+ * Body của PUT /briefs/{brief_id} (docs/API_CONTRACT.md §1.10).
+ * Tất cả trường optional nhưng phải có ít nhất 1 trường; edit KHÔNG đổi
+ * version/status/decision — chỉ chỉnh nội dung do cố vấn soạn lại.
+ */
+export interface BriefEdits {
+  summary?: string;
+  reasons?: Array<{ text: string; evidenceFeatures: string[] }>;
+  supportSuggestions?: string[];
+  limitations?: string[];
+}
+
+/** Kết quả ghi nhận quyết định của cố vấn (POST /briefs/{id}/decision). */
+export interface BriefDecision {
+  briefId: number;
+  decision: 'accepted' | 'rejected';
+  decidedAt: string;
 }
 
 export interface ApiError {

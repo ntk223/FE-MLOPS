@@ -139,10 +139,19 @@ function buildStudentPredictions(): StudentPrediction[] {
 
 export const MOCK_STUDENTS: StudentPrediction[] = buildStudentPredictions();
 
+/** PK composite của mock student — API thật không có predictionId numeric. */
+function briefRef(student: StudentPrediction) {
+  return {
+    codeModule: student.codeModule,
+    codePresentation: student.codePresentation,
+    studentKey: student.studentKey,
+  };
+}
+
 export const MOCK_BRIEFS: AdvisorBrief[] = [
   {
+    ...briefRef(MOCK_STUDENTS[1]),
     briefId: 5001,
-    predictionId: 1001,
     version: 1,
     status: 'generated',
     summary:
@@ -167,8 +176,8 @@ export const MOCK_BRIEFS: AdvisorBrief[] = [
     ],
   },
   {
+    ...briefRef(MOCK_STUDENTS[4]),
     briefId: 5002,
-    predictionId: 1004,
     version: 1,
     status: 'accepted',
     summary:
@@ -193,8 +202,8 @@ export const MOCK_BRIEFS: AdvisorBrief[] = [
     ],
   },
   {
+    ...briefRef(MOCK_STUDENTS[7]),
     briefId: 5003,
-    predictionId: 1007,
     version: 2,
     status: 'rejected',
     summary:
