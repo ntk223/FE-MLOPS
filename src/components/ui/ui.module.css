@@ -351,18 +351,6 @@
 }
 
 /* Micro-label above the marker ("Ngưỡng NN%"). */
-.riskBarThresholdLabel {
-  position: absolute;
-  bottom: calc(100% + 3px);
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 10px;
-  font-weight: var(--font-weight-semibold);
-  color: var(--risk-marker-text);
-  white-space: nowrap;
-  line-height: 1;
-}
-
 .riskBarLabels {
   display: flex;
   justify-content: space-between;

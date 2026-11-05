@@ -75,16 +75,11 @@ export function RiskBar({
           <div
             className={styles.riskBarThreshold}
             style={{ left: `calc(${Math.min(1, Math.max(0, threshold)) * 100}% - 1px)` }}
-          >
-            <span className={styles.riskBarThresholdLabel}>
-              Ngưỡng {formatPercent(threshold)}
-            </span>
-          </div>
+          />
         ) : null}
       </div>
       <div className={styles.riskBarLabels}>
         <span className={styles.riskBarScore}>Điểm {formatPercent(riskScore)}</span>
-        <span>Ngưỡng {formatPercent(threshold)}</span>
         {uncertainty !== null ? (
           <span className={styles.riskBarUncertainty}>
             Không chắc {formatPercent(uncertainty)}
