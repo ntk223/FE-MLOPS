@@ -84,7 +84,8 @@ interface RawPrediction {
   snapshot_version: string;
   cutoff_day: number;
   top_signals_json: string | null;
-  features_json: string | null;
+  /** Backend đã parse features_json thành object trước khi trả. */
+  features?: Record<string, number | null> | null;
   run_id: string;
   scored_at: string | null;
 }
@@ -109,22 +110,15 @@ const REVIEW_REASONS: readonly ReviewReason[] = [
   'no_prediction',
 ];
 
-/** Parse features_json defensively — a malformed payload never crashes UI. */
-function parseFeatures(raw: string | null): Record<string, number | null> {
-  if (!raw) {
-    return {};
-  }
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    return {};
-  }
-  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+/** Lọc defensively object features từ backend — chỉ giữ number/null. */
+function sanitizeFeatures(
+  raw: Record<string, number | null> | null | undefined,
+): Record<string, number | null> {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
     return {};
   }
   const features: Record<string, number | null> = {};
-  for (const [name, value] of Object.entries(parsed)) {
+  for (const [name, value] of Object.entries(raw)) {
     if (value === null) {
       features[name] = null;
     } else if (typeof value === 'number' && Number.isFinite(value)) {
@@ -198,7 +192,7 @@ function toPrediction(raw: RawPrediction): StudentPrediction {
     snapshotVersion: raw.snapshot_version,
     cutoffDay: raw.cutoff_day,
     topSignals: parseTopSignals(raw.top_signals_json),
-    features: parseFeatures(raw.features_json),
+    features: sanitizeFeatures(raw.features),
     runId: raw.run_id,
     scoredAt: raw.scored_at,
   };
