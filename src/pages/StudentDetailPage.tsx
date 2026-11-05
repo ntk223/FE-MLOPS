@@ -12,6 +12,7 @@ import {
   Spinner,
   StatusBadge,
 } from '../components/ui';
+import { FEATURE_LABELS, featureLabel, signalLabel } from '../features/advisor/feature-labels';
 import styles from './StudentDetailPage.module.css';
 
 const advisorService = new AdvisorService(apiClient);
@@ -25,6 +26,17 @@ function formatDateTime(iso: string | null): string {
     return '—';
   }
   return new Date(iso).toLocaleString('vi-VN');
+}
+
+/** Định dạng giá trị thống kê theo ý nghĩa từng chỉ số. */
+function formatStatValue(name: string, value: number): string {
+  if (name === 'avg_score_submitted') {
+    return value.toFixed(1);
+  }
+  if (name === 'click_trend_w3_w4') {
+    return value > 0 ? `+${Math.round(value)}` : Math.round(value).toString();
+  }
+  return Math.round(value).toLocaleString('vi-VN');
 }
 
 const STATUS_EXPLANATION: Record<StudentPrediction['status'], string> = {
@@ -193,10 +205,6 @@ export function StudentDetailPage(): ReactElement {
             <dd>{formatPercent(prediction.uncertainty)}</dd>
           </div>
           <div>
-            <dt>Ngưỡng quyết định</dt>
-            <dd>{prediction.threshold ?? '—'}</dd>
-          </div>
-          <div>
             <dt>Nhãn dự đoán</dt>
             <dd>
               {prediction.predictedLabel === null
@@ -210,23 +218,71 @@ export function StudentDetailPage(): ReactElement {
             <dt>Thời điểm chấm</dt>
             <dd>{formatDateTime(prediction.scoredAt)}</dd>
           </div>
-          <div>
-            <dt>Cutoff day</dt>
-            <dd>{prediction.cutoffDay}</dd>
-          </div>
-          <div>
-            <dt>Phiên bản model</dt>
-            <dd>
-              <code>{prediction.modelVersion}</code>
-            </dd>
-          </div>
-          <div>
-            <dt>Phiên bản dữ liệu</dt>
-            <dd>
-              <code>{prediction.snapshotVersion}</code>
-            </dd>
-          </div>
         </dl>
+        <details className={styles.techDetails}>
+          <summary>Thông tin kỹ thuật (dành cho kiểm tra/audit)</summary>
+          <dl className={styles.metaGrid}>
+            <div>
+              <dt>Ngưỡng quyết định</dt>
+              <dd>{prediction.threshold ?? '—'}</dd>
+            </div>
+            <div>
+              <dt>Cutoff day</dt>
+              <dd>{prediction.cutoffDay}</dd>
+            </div>
+            <div>
+              <dt>Phiên bản model</dt>
+              <dd>
+                <code>{prediction.modelVersion}</code>
+              </dd>
+            </div>
+            <div>
+              <dt>Phiên bản dữ liệu</dt>
+              <dd>
+                <code>{prediction.snapshotVersion}</code>
+              </dd>
+            </div>
+            <div>
+              <dt>Batch (run id)</dt>
+              <dd>
+                <code>{prediction.runId}</code>
+              </dd>
+            </div>
+          </dl>
+        </details>
+      </Card>
+
+      <Card>
+        <h2 className={styles.sectionTitle}>
+          Thống kê học tập (tại thời điểm cắt — day {prediction.cutoffDay})
+        </h2>
+        {Object.keys(prediction.features).length === 0 ? (
+          <p className={styles.muted}>
+            Chưa có thống kê học tập cho sinh viên này.
+          </p>
+        ) : (
+          <dl className={styles.metaGrid}>
+            {Object.entries(FEATURE_LABELS).map(([name, label]) => {
+              const value = prediction.features[name];
+              return (
+                <div key={name}>
+                  <dt>{label}</dt>
+                  <dd>
+                    {value === null ? (
+                      '—'
+                    ) : (
+                      formatStatValue(name, value)
+                    )}
+                  </dd>
+                </div>
+              );
+            })}
+          </dl>
+        )}
+        <p className={styles.disclaimer}>
+          Số liệu được tổng hợp từ hoạt động học tập trên hệ thống tính đến
+          thời điểm cắt (cutoff day {prediction.cutoffDay}) — trước khi kết thúc kỳ học.
+        </p>
       </Card>
 
       <Card>
@@ -251,7 +307,10 @@ export function StudentDetailPage(): ReactElement {
               {prediction.topSignals.map((signal) => (
                 <tr key={signal.featureName}>
                   <td>
-                    <code>{signal.featureName}</code>
+                    {signalLabel(signal.featureName)}
+                    <span className={styles.signalRawName}>
+                      <code>{signal.featureName}</code>
+                    </span>
                   </td>
                   <td>{signal.contribution.toFixed(3)}</td>
                   <td>

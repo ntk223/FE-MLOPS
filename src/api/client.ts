@@ -84,6 +84,7 @@ interface RawPrediction {
   snapshot_version: string;
   cutoff_day: number;
   top_signals_json: string | null;
+  features_json: string | null;
   run_id: string;
   scored_at: string | null;
 }
@@ -107,6 +108,31 @@ const REVIEW_REASONS: readonly ReviewReason[] = [
   'high_uncertainty',
   'no_prediction',
 ];
+
+/** Parse features_json defensively — a malformed payload never crashes UI. */
+function parseFeatures(raw: string | null): Record<string, number | null> {
+  if (!raw) {
+    return {};
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return {};
+  }
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    return {};
+  }
+  const features: Record<string, number | null> = {};
+  for (const [name, value] of Object.entries(parsed)) {
+    if (value === null) {
+      features[name] = null;
+    } else if (typeof value === 'number' && Number.isFinite(value)) {
+      features[name] = value;
+    }
+  }
+  return features;
+}
 
 /** Parse top_signals_json defensively — a malformed payload never crashes UI. */
 function parseTopSignals(raw: string | null): PredictionSignal[] {
@@ -172,6 +198,7 @@ function toPrediction(raw: RawPrediction): StudentPrediction {
     snapshotVersion: raw.snapshot_version,
     cutoffDay: raw.cutoff_day,
     topSignals: parseTopSignals(raw.top_signals_json),
+    features: parseFeatures(raw.features_json),
     runId: raw.run_id,
     scoredAt: raw.scored_at,
   };

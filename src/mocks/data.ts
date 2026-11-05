@@ -117,6 +117,18 @@ function buildStudentPredictions(): StudentPrediction[] {
       snapshotVersion: 'snapshot-v1:cutoff27:35de8103:39e10cfa',
       cutoffDay: 27,
       topSignals,
+      features: {
+        n_clicks_before_cutoff:
+          status === 'insufficient_data' ? null : Math.round(rng() * 2500),
+        click_trend_w3_w4:
+          status === 'insufficient_data' ? null : Math.round((rng() - 0.5) * 600),
+        n_submitted_before_cutoff:
+          status === 'insufficient_data' ? null : Math.round(rng() * 9),
+        avg_score_submitted:
+          status === 'insufficient_data' ? null : round2(rng() * 100),
+        num_of_prev_attempts: Math.floor(rng() * 3),
+        studied_credits: [60, 90, 120, 240][Math.floor(rng() * 4)],
+      },
       runId: 'mock-run',
       scoredAt: new Date('2026-10-30T08:34:09Z').toISOString(),
     });

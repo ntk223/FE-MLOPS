@@ -54,6 +54,8 @@ export interface StudentPrediction {
   snapshotVersion: string;
   cutoffDay: number;
   topSignals: PredictionSignal[];
+  /** Thống kê hành vi/học thuật gốc của SV tại cutoff (features_json). */
+  features: Record<string, number | null>;
   runId: string;
   scoredAt: string | null;
 }
