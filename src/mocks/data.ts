@@ -4,6 +4,14 @@ import type {
   PredictionStatus,
   StudentPrediction,
 } from '../contracts/api';
+import type {
+  EvaluationCheck,
+  EvaluationCheckStatus,
+  EvaluationDetail,
+  EvaluationRunSummary,
+  EvaluationScorecard,
+  EvaluationSummaryCounts,
+} from '../api/client';
 
 const MODULE_CODES = ['AAA', 'BBB', 'CCC', 'DDD', 'EEE'] as const;
 const PRESENTATION_CODES = ['2013J', '2014B', '2013B'] as const;
@@ -228,3 +236,301 @@ export const MOCK_BRIEFS: AdvisorBrief[] = [
     ],
   },
 ];
+
+/* ------------------------------------------------------------------ */
+/* Mock evaluations (§1.11) — 2 runs demo cho trang "Đánh giá tự động": */
+/* run 1 pass trọn vẹn (3 gates), run 2 có warn + fail. Nội dung tiếng  */
+/* Việt, khớp shape camelCase sau khi map defensive ở api/client.ts.    */
+/* ------------------------------------------------------------------ */
+
+function mockSummary(
+  pass: number,
+  warn: number,
+  fail: number,
+  skipped: number,
+): EvaluationSummaryCounts {
+  return { total: pass + warn + fail + skipped, pass, warn, fail, skipped };
+}
+
+function mockCheck(
+  id: string,
+  name: string,
+  status: EvaluationCheckStatus,
+  threshold: string | null,
+  observed: string,
+  details: string,
+): EvaluationCheck {
+  return { id, name, status, threshold, observed, details };
+}
+
+function mockScorecard(
+  subject: string,
+  runId: string,
+  createdAt: string,
+  inputs: string,
+  checks: EvaluationCheck[],
+  summary: EvaluationSummaryCounts,
+): EvaluationScorecard {
+  return {
+    schemaVersion: 'learnguard.eval.v1',
+    runId,
+    subject,
+    createdAt,
+    inputs,
+    checks,
+    summary,
+  };
+}
+
+const RUN_PASS_ID = 'eval-report-20261106-0930';
+const RUN_PASS_AT = '2026-11-06T09:30:00+07:00';
+const RUN_FAIL_ID = 'eval-report-20261105-1400';
+const RUN_FAIL_AT = '2026-11-05T14:00:00+07:00';
+
+export const MOCK_EVALUATION_RUNS: EvaluationRunSummary[] = [
+  {
+    runId: RUN_PASS_ID,
+    createdAt: RUN_PASS_AT,
+    subjects: ['data', 'ml', 'llm'],
+    combinedSummary: mockSummary(10, 0, 0, 0),
+    overallStatus: 'pass',
+    reportsAvailable: ['eval_data.json', 'eval_ml.json', 'eval_llm.json'],
+  },
+  {
+    runId: RUN_FAIL_ID,
+    createdAt: RUN_FAIL_AT,
+    subjects: ['data', 'ml', 'llm'],
+    combinedSummary: mockSummary(5, 3, 2, 0),
+    overallStatus: 'fail',
+    reportsAvailable: ['eval_data.json', 'eval_ml.json', 'eval_llm.json'],
+  },
+];
+
+export const MOCK_EVALUATION_DETAILS: Record<string, EvaluationDetail> = {
+  [RUN_PASS_ID]: {
+    runId: RUN_PASS_ID,
+    createdAt: RUN_PASS_AT,
+    reports: [
+      mockScorecard(
+        'data',
+        RUN_PASS_ID,
+        RUN_PASS_AT,
+        'snapshot-v1:cutoff27 · 6.510 dòng · 12 cột đặc trưng',
+        [
+          mockCheck(
+            'data_row_count',
+            'Số dòng dữ liệu đầu vào',
+            'pass',
+            '≥ 1.000 dòng',
+            '6.510 dòng',
+            'Tổng số dòng sau khi nạp snapshot OULAD tại cutoff day 27 — vượt ngưỡng tối thiểu.',
+          ),
+          mockCheck(
+            'data_missing_values',
+            'Tỷ lệ giá trị thiếu',
+            'pass',
+            '≤ 5%',
+            '1.8%',
+            'Chủ yếu thiếu ở cột avg_score_submitted với sinh viên chưa nộp bài nào.',
+          ),
+          mockCheck(
+            'data_duplicates',
+            'Dòng trùng lặp',
+            'pass',
+            '= 0 dòng',
+            '0 dòng',
+            'Kiểm tra theo PK composite (code_module, code_presentation, student_key).',
+          ),
+          mockCheck(
+            'data_label_balance',
+            'Cân bằng nhãn mục tiêu',
+            'pass',
+            '≥ 10% mỗi lớp',
+            'Lớp 1 (rủi ro): 32.4% · Lớp 0: 67.6%',
+            'Tỷ lệ hai lớp đủ lớn để huấn luyện và đánh giá đáng tin cậy.',
+          ),
+        ],
+        mockSummary(4, 0, 0, 0),
+      ),
+      mockScorecard(
+        'ml',
+        RUN_PASS_ID,
+        RUN_PASS_AT,
+        'logreg-v1:b791ed6e · split validation · 1.302 dòng',
+        [
+          mockCheck(
+            'ml_auc_validation',
+            'AUC tập validation',
+            'pass',
+            '≥ 0.75',
+            '0.86',
+            'AUC trên tập validation — khả năng phân biệt sinh viên rủi ro/không rủi ro.',
+          ),
+          mockCheck(
+            'ml_brier',
+            'Brier score',
+            'pass',
+            '≤ 0.15',
+            '0.09',
+            'Độ chính xác xác suất: càng nhỏ càng tốt.',
+          ),
+          mockCheck(
+            'ml_calibration',
+            'Lệch hiệu chỉnh xác suất (ECE)',
+            'pass',
+            '≤ 0.05',
+            '0.03',
+            'Xác suất dự đoán khớp tốt với tần suất thực tế theo 10 bins.',
+          ),
+          mockCheck(
+            'ml_feature_drift',
+            'Drift đặc trưng (PSI)',
+            'pass',
+            '< 0.2',
+            'PSI lớn nhất: 0.07 (clicks_week4)',
+            'Không có đặc trưng nào dịch chuyển phân bố đáng kể so với lúc huấn luyện.',
+          ),
+        ],
+        mockSummary(4, 0, 0, 0),
+      ),
+      mockScorecard(
+        'llm',
+        RUN_PASS_ID,
+        RUN_PASS_AT,
+        'gemini/gemini-3.1-flash-lite · 40 brief trong 24 giờ qua',
+        [
+          mockCheck(
+            'llm_configured',
+            'LLM đã cấu hình',
+            'pass',
+            'api_key tồn tại',
+            'gemini/gemini-3.1-flash-lite',
+            'Endpoint sinh brief hoạt động; fallback_review chiếm 0/40 brief.',
+          ),
+          mockCheck(
+            'llm_latency_p95',
+            'Độ trễ p95 sinh brief',
+            'pass',
+            '≤ 5.000 ms',
+            '1.240 ms',
+            '95% brief được sinh trong vòng 1.240 ms.',
+          ),
+        ],
+        mockSummary(2, 0, 0, 0),
+      ),
+    ],
+  },
+  [RUN_FAIL_ID]: {
+    runId: RUN_FAIL_ID,
+    createdAt: RUN_FAIL_AT,
+    reports: [
+      mockScorecard(
+        'data',
+        RUN_FAIL_ID,
+        RUN_FAIL_AT,
+        'snapshot-v1:cutoff27 · 6.480 dòng · 12 cột đặc trưng',
+        [
+          mockCheck(
+            'data_row_count',
+            'Số dòng dữ liệu đầu vào',
+            'pass',
+            '≥ 1.000 dòng',
+            '6.480 dòng',
+            'Tổng số dòng sau khi nạp snapshot OULAD tại cutoff day 27.',
+          ),
+          mockCheck(
+            'data_missing_values',
+            'Tỷ lệ giá trị thiếu',
+            'warn',
+            '≤ 5%',
+            '7.3%',
+            'Cột avg_score_submitted thiếu 7.3% — vượt ngưỡng, nên cẩn trọng khi diễn giải điểm nguy cơ.',
+          ),
+          mockCheck(
+            'data_duplicates',
+            'Dòng trùng lặp',
+            'pass',
+            '= 0 dòng',
+            '0 dòng',
+            'Kiểm tra theo PK composite (code_module, code_presentation, student_key).',
+          ),
+          mockCheck(
+            'data_label_balance',
+            'Cân bằng nhãn mục tiêu',
+            'pass',
+            '≥ 10% mỗi lớp',
+            'Lớp 1 (rủi ro): 31.1% · Lớp 0: 68.9%',
+            'Tỷ lệ hai lớp đủ lớn để huấn luyện và đánh giá đáng tin cậy.',
+          ),
+        ],
+        mockSummary(3, 1, 0, 0),
+      ),
+      mockScorecard(
+        'ml',
+        RUN_FAIL_ID,
+        RUN_FAIL_AT,
+        'logreg-v1:b791ed6e · split validation · 1.297 dòng',
+        [
+          mockCheck(
+            'ml_auc_validation',
+            'AUC tập validation',
+            'fail',
+            '≥ 0.75',
+            '0.68',
+            'AUC giảm 0.18 so với run trước — mô hình chưa đạt chất lượng tối thiểu, KHÔNG dùng điểm này để ưu tiên.',
+          ),
+          mockCheck(
+            'ml_brier',
+            'Brier score',
+            'warn',
+            '≤ 0.15',
+            '0.17',
+            'Xác suất dự đoán lệch hơn mức cho phép — cân nhắc hiệu chỉnh lại.',
+          ),
+          mockCheck(
+            'ml_calibration',
+            'Lệch hiệu chỉnh xác suất (ECE)',
+            'pass',
+            '≤ 0.05',
+            '0.04',
+            'Hiệu chỉnh xác suất vẫn trong ngưỡng chấp nhận được.',
+          ),
+          mockCheck(
+            'ml_feature_drift',
+            'Drift đặc trưng (PSI)',
+            'fail',
+            '< 0.2',
+            'PSI lớn nhất: 0.31 (clicks_week4)',
+            'Phân bố lượt truy cập tuần 4 dịch chuyển mạnh so với lúc huấn luyện — nguyên nhân khả dĩ nhất của suy giảm AUC.',
+          ),
+        ],
+        mockSummary(1, 1, 2, 0),
+      ),
+      mockScorecard(
+        'llm',
+        RUN_FAIL_ID,
+        RUN_FAIL_AT,
+        'gemini/gemini-3.1-flash-lite · 35 brief trong 24 giờ qua',
+        [
+          mockCheck(
+            'llm_configured',
+            'LLM đã cấu hình',
+            'pass',
+            'api_key tồn tại',
+            'gemini/gemini-3.1-flash-lite',
+            'Endpoint sinh brief hoạt động; fallback_review chiếm 1/35 brief.',
+          ),
+          mockCheck(
+            'llm_latency_p95',
+            'Độ trễ p95 sinh brief',
+            'warn',
+            '≤ 5.000 ms',
+            '6.380 ms',
+            'Độ trễ p95 vượt ngưỡng — có thể do rate limit của nhà cung cấp LLM.',
+          ),
+        ],
+        mockSummary(1, 1, 0, 0),
+      ),
+    ],
+  },
+};

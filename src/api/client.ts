@@ -39,6 +39,71 @@ export interface QueueStats {
 }
 
 /**
+ * Trạng thái của 1 check trong scorecard đánh giá tự động (§1.11).
+ * Status lạ từ backend → 'skipped' (hiển thị xám, không crash).
+ */
+export type EvaluationCheckStatus = 'pass' | 'warn' | 'fail' | 'skipped';
+
+/** Bộ đếm tổng hợp của 1 scorecard / 1 run đánh giá. */
+export interface EvaluationSummaryCounts {
+  total: number;
+  pass: number;
+  warn: number;
+  fail: number;
+  skipped: number;
+}
+
+/** Một dòng trong GET /evaluations — tóm tắt 1 lần chạy đánh giá (§1.11). */
+export interface EvaluationRunSummary {
+  runId: string;
+  createdAt: string;
+  /** Các subject (gate) đã đánh giá: 'data' | 'ml' | 'llm' | … */
+  subjects: string[];
+  combinedSummary: EvaluationSummaryCounts;
+  overallStatus: EvaluationCheckStatus;
+  /** Tên file report có sẵn (eval_data.json, eval_ml.json, …). */
+  reportsAvailable: string[];
+}
+
+/** Kết quả GET /evaluations. */
+export interface EvaluationRunListResult {
+  runs: EvaluationRunSummary[];
+  total: number;
+  limit: number;
+}
+
+/** Một check trong bảng scorecard — observed/threshold đã format thành chuỗi. */
+export interface EvaluationCheck {
+  id: string;
+  name: string;
+  status: EvaluationCheckStatus;
+  /** Ngưỡng đã format; null nếu check không có ngưỡng. */
+  threshold: string | null;
+  /** Giá trị quan sát được, đã format gọn (object → "key: value · …"). */
+  observed: string;
+  details: string;
+}
+
+/** Scorecard của 1 subject (data/ml/llm) trong GET /evaluations/{run_id}. */
+export interface EvaluationScorecard {
+  schemaVersion: string;
+  runId: string;
+  subject: string;
+  createdAt: string;
+  inputs: string;
+  checks: EvaluationCheck[];
+  summary: EvaluationSummaryCounts;
+}
+
+/** Chi tiết 1 lần đánh giá — 1 scorecard cho mỗi subject đã chạy. */
+export interface EvaluationDetail {
+  runId: string;
+  createdAt: string;
+  /** Scorecard theo subject, đã sort theo thứ tự data → ml → llm → còn lại. */
+  reports: EvaluationScorecard[];
+}
+
+/**
  * Contract shared by the real client and the mock client
  * (docs/API_CONTRACT.md v1.1). Auth vẫn chỉ có ở mock cho đến khi backend
  * ships M6; briefs đã chạy real API (M8).
@@ -60,6 +125,16 @@ export interface ILearnGuardApiClient {
     briefId: number,
     decision: 'accepted' | 'rejected',
   ): Promise<BriefDecision>;
+  /**
+   * GET /evaluations?limit=… (§1.11) — danh sách lần chạy đánh giá tự động
+   * (3 gates: data / ml / llm), mới nhất trước.
+   */
+  listEvaluations(limit?: number): Promise<EvaluationRunListResult>;
+  /**
+   * GET /evaluations/{run_id} (§1.11) — scorecard chi tiết của 1 lần chạy.
+   * Lỗi: 404 evaluation_not_found, 503 evaluations_dir_not_configured.
+   */
+  getEvaluation(runId: string): Promise<EvaluationDetail>;
 }
 
 const REQUEST_TIMEOUT_MS = 15_000;
@@ -273,6 +348,225 @@ function parseTopSignals(raw: unknown): PredictionSignal[] {
   return signals;
 }
 
+/** Body GET /evaluations (§1.11) — snake_case từ backend. */
+interface RawEvaluationList {
+  runs?: unknown;
+  total?: unknown;
+  limit?: unknown;
+}
+
+/** Một dòng trong GET /evaluations — snake_case từ backend. */
+interface RawEvaluationRunSummary {
+  run_id?: unknown;
+  created_at?: unknown;
+  subjects?: unknown;
+  combined_summary?: unknown;
+  overall_status?: unknown;
+  reports_available?: unknown;
+}
+
+/** Một check trong scorecard — snake_case từ backend (§1.11). */
+interface RawEvaluationCheck {
+  id?: unknown;
+  name?: unknown;
+  status?: unknown;
+  threshold?: unknown;
+  observed?: unknown;
+  details?: unknown;
+}
+
+/** Scorecard của 1 subject — snake_case từ backend (§1.11). */
+interface RawEvaluationScorecard {
+  schema_version?: unknown;
+  run_id?: unknown;
+  subject?: unknown;
+  created_at?: unknown;
+  inputs?: unknown;
+  checks?: unknown;
+  summary?: unknown;
+}
+
+/** Body GET /evaluations/{run_id} — snake_case từ backend. */
+interface RawEvaluationDetail {
+  run_id?: unknown;
+  created_at?: unknown;
+  reports?: unknown;
+}
+
+const CHECK_STATUSES: readonly EvaluationCheckStatus[] = [
+  'pass',
+  'warn',
+  'fail',
+  'skipped',
+];
+
+/** Thứ tự hiển thị ưu tiên cho các subject (gate). */
+const SUBJECT_ORDER: readonly string[] = ['data', 'ml', 'llm'];
+
+function subjectRank(subject: string): number {
+  const index = SUBJECT_ORDER.indexOf(subject);
+  return index === -1 ? SUBJECT_ORDER.length : index;
+}
+
+/**
+ * Format 1 giá trị observed/threshold/inputs bất kỳ thành chuỗi gọn:
+ * object → "key: value · key: value", array → nối bằng ", ",
+ * scalar → String(value), null/undefined → "—". Payload hỏng không crash UI.
+ */
+export function formatEvaluationValue(raw: unknown): string {
+  if (raw === null || raw === undefined) {
+    return '—';
+  }
+  if (typeof raw === 'string') {
+    return raw;
+  }
+  if (typeof raw === 'number' || typeof raw === 'boolean') {
+    return String(raw);
+  }
+  if (Array.isArray(raw)) {
+    return raw.map((item) => formatEvaluationValue(item)).join(', ');
+  }
+  if (typeof raw === 'object') {
+    return Object.entries(raw as Record<string, unknown>)
+      .map(([key, value]) => `${key}: ${formatEvaluationValue(value)}`)
+      .join(' · ');
+  }
+  return String(raw);
+}
+
+/** Đọc bộ đếm summary defensively — thiếu/hỏng trường nào về 0. */
+function toSummaryCounts(raw: unknown): EvaluationSummaryCounts {
+  const record =
+    typeof raw === 'object' && raw !== null && !Array.isArray(raw)
+      ? (raw as Record<string, unknown>)
+      : {};
+  const count = (value: unknown): number =>
+    typeof value === 'number' && Number.isFinite(value) ? value : 0;
+  return {
+    total: count(record['total']),
+    pass: count(record['pass']),
+    warn: count(record['warn']),
+    fail: count(record['fail']),
+    skipped: count(record['skipped']),
+  };
+}
+
+/** Map 1 check defensively — status lạ → 'skipped', thiếu id/name → fallback. */
+function toEvaluationCheck(raw: RawEvaluationCheck, index: number): EvaluationCheck {
+  const status = CHECK_STATUSES.includes(raw.status as EvaluationCheckStatus)
+    ? (raw.status as EvaluationCheckStatus)
+    : 'skipped';
+  const id =
+    typeof raw.id === 'string' && raw.id !== '' ? raw.id : `check-${index + 1}`;
+  return {
+    id,
+    name:
+      typeof raw.name === 'string' && raw.name !== ''
+        ? raw.name
+        : 'Kiểm tra không tên',
+    status,
+    threshold:
+      raw.threshold === null || raw.threshold === undefined
+        ? null
+        : formatEvaluationValue(raw.threshold),
+    observed: formatEvaluationValue(raw.observed),
+    details: typeof raw.details === 'string' ? raw.details : '',
+  };
+}
+
+/** Map 1 scorecard defensively — subject thiếu → dùng key của reports. */
+function toEvaluationScorecard(
+  raw: RawEvaluationScorecard,
+  fallbackSubject: string,
+): EvaluationScorecard {
+  const checks = Array.isArray(raw.checks)
+    ? raw.checks.map((entry, index) =>
+        toEvaluationCheck(
+          (typeof entry === 'object' && entry !== null
+            ? entry
+            : {}) as RawEvaluationCheck,
+          index,
+        ),
+      )
+    : [];
+  return {
+    schemaVersion:
+      typeof raw.schema_version === 'string' ? raw.schema_version : '',
+    runId: typeof raw.run_id === 'string' ? raw.run_id : '',
+    subject:
+      typeof raw.subject === 'string' && raw.subject !== ''
+        ? raw.subject
+        : fallbackSubject,
+    createdAt: typeof raw.created_at === 'string' ? raw.created_at : '',
+    inputs: formatEvaluationValue(raw.inputs),
+    checks,
+    summary: toSummaryCounts(raw.summary),
+  };
+}
+
+/** Map 1 dòng danh sách evaluations defensively. */
+function toEvaluationRunSummary(
+  raw: RawEvaluationRunSummary,
+): EvaluationRunSummary {
+  const subjects = Array.isArray(raw.subjects)
+    ? raw.subjects.filter((item): item is string => typeof item === 'string')
+    : [];
+  const reportsAvailable = Array.isArray(raw.reports_available)
+    ? raw.reports_available.filter(
+        (item): item is string => typeof item === 'string',
+      )
+    : [];
+  return {
+    runId: typeof raw.run_id === 'string' ? raw.run_id : '',
+    createdAt: typeof raw.created_at === 'string' ? raw.created_at : '',
+    subjects: [...subjects].sort(
+      (a, b) => subjectRank(a) - subjectRank(b) || a.localeCompare(b),
+    ),
+    combinedSummary: toSummaryCounts(raw.combined_summary),
+    overallStatus: CHECK_STATUSES.includes(
+      raw.overall_status as EvaluationCheckStatus,
+    )
+      ? (raw.overall_status as EvaluationCheckStatus)
+      : 'skipped',
+    reportsAvailable,
+  };
+}
+
+/** Map chi tiết 1 run: reports object → mảng scorecard sort theo subject. */
+function toEvaluationDetail(raw: RawEvaluationDetail): EvaluationDetail {
+  let reports: EvaluationScorecard[] = [];
+  if (
+    typeof raw.reports === 'object' &&
+    raw.reports !== null &&
+    !Array.isArray(raw.reports)
+  ) {
+    reports = Object.entries(raw.reports as Record<string, unknown>).map(
+      ([subject, value]) =>
+        toEvaluationScorecard(
+          (typeof value === 'object' && value !== null
+            ? value
+            : {}) as RawEvaluationScorecard,
+          subject,
+        ),
+    );
+  } else if (Array.isArray(raw.reports)) {
+    reports = raw.reports.map((value, index) =>
+      toEvaluationScorecard(
+        (typeof value === 'object' && value !== null
+          ? value
+          : {}) as RawEvaluationScorecard,
+        `subject-${index + 1}`,
+      ),
+    );
+  }
+  reports.sort((a, b) => subjectRank(a.subject) - subjectRank(b.subject));
+  return {
+    runId: typeof raw.run_id === 'string' ? raw.run_id : '',
+    createdAt: typeof raw.created_at === 'string' ? raw.created_at : '',
+    reports,
+  };
+}
+
 function toPrediction(raw: RawPrediction): StudentPrediction {
   const status = STATUSES.includes(raw.status as PredictionStatus)
     ? (raw.status as PredictionStatus)
@@ -435,6 +729,47 @@ export class LearnGuardApiClient implements ILearnGuardApiClient {
       decision: raw.decision === 'rejected' ? 'rejected' : 'accepted',
       decidedAt: raw.decided_at,
     };
+  }
+
+  async listEvaluations(limit?: number): Promise<EvaluationRunListResult> {
+    // GET /evaluations?limit=… (§1.11) — backend trả snake_case.
+    const params = new URLSearchParams();
+    if (limit !== undefined) {
+      params.set('limit', String(limit));
+    }
+    const query = params.toString();
+    const raw = await this.request<RawEvaluationList>(
+      query !== '' ? `/evaluations?${query}` : '/evaluations',
+    );
+    const runs = Array.isArray(raw.runs)
+      ? raw.runs.map((entry) =>
+          toEvaluationRunSummary(
+            (typeof entry === 'object' && entry !== null
+              ? entry
+              : {}) as RawEvaluationRunSummary,
+          ),
+        )
+      : [];
+    return {
+      runs,
+      total:
+        typeof raw.total === 'number' && Number.isFinite(raw.total)
+          ? raw.total
+          : runs.length,
+      limit:
+        typeof raw.limit === 'number' && Number.isFinite(raw.limit)
+          ? raw.limit
+          : (limit ?? 20),
+    };
+  }
+
+  async getEvaluation(runId: string): Promise<EvaluationDetail> {
+    // GET /evaluations/{run_id} (§1.11) — 404 evaluation_not_found,
+    // 503 evaluations_dir_not_configured → HTTP_404/HTTP_503 qua toApiError.
+    const raw = await this.request<RawEvaluationDetail>(
+      `/evaluations/${encodeURIComponent(runId)}`,
+    );
+    return toEvaluationDetail(raw);
   }
 
   private async request<T>(

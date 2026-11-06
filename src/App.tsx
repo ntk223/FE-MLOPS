@@ -9,6 +9,7 @@ import {
 import { apiClient } from './api';
 import { AppShell } from './components/layout/AppShell';
 import { AdvisorDashboardPage } from './pages/AdvisorDashboardPage';
+import { EvaluationsPage } from './pages/EvaluationsPage';
 import { LoginPage } from './pages/LoginPage';
 import { StudentDetailPage } from './pages/StudentDetailPage';
 import { AuthService } from './features/auth/auth-service';
@@ -67,6 +68,16 @@ export function App(): ReactElement {
             <RequireAuth>
               <AuthedShell>
                 <AdvisorDashboardPage />
+              </AuthedShell>
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/evaluations"
+          element={
+            <RequireAuth>
+              <AuthedShell>
+                <EvaluationsPage />
               </AuthedShell>
             </RequireAuth>
           }

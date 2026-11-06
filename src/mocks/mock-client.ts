@@ -11,10 +11,17 @@ import type {
 } from '../contracts/api';
 import type {
   ILearnGuardApiClient,
+  EvaluationRunListResult,
+  EvaluationDetail,
   LoginCredentials,
   QueueStats,
 } from '../api/client';
-import { MOCK_BRIEFS, MOCK_STUDENTS } from './data';
+import {
+  MOCK_BRIEFS,
+  MOCK_EVALUATION_DETAILS,
+  MOCK_EVALUATION_RUNS,
+  MOCK_STUDENTS,
+} from './data';
 
 /**
  * Mock implementation of the ILearnGuardApiClient contract.
@@ -282,6 +289,33 @@ export class MockApiClient implements ILearnGuardApiClient {
       decision,
       decidedAt: new Date().toISOString(),
     };
+  }
+
+  /**
+   * GET /evaluations (§1.11) — 2 runs demo cứng (1 pass trọn, 1 có
+   * warn + fail), mới nhất trước.
+   */
+  async listEvaluations(limit?: number): Promise<EvaluationRunListResult> {
+    await this.delay();
+    const capped = limit !== undefined && limit >= 0 ? limit : 20;
+    return {
+      runs: MOCK_EVALUATION_RUNS.slice(0, capped),
+      total: MOCK_EVALUATION_RUNS.length,
+      limit: capped,
+    };
+  }
+
+  /** GET /evaluations/{run_id} (§1.11) — 404 nếu run không tồn tại. */
+  async getEvaluation(runId: string): Promise<EvaluationDetail> {
+    await this.delay();
+    const detail = MOCK_EVALUATION_DETAILS[runId];
+    if (detail === undefined) {
+      throw this.error(
+        'HTTP_404',
+        `Không tìm thấy lần đánh giá "${runId}" (evaluation_not_found).`,
+      );
+    }
+    return detail;
   }
 
   /** Filter the mock dataset exactly like the backend list endpoint. */

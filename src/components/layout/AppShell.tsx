@@ -40,6 +40,14 @@ export function AppShell({
           >
             Danh sách ưu tiên
           </NavLink>
+          <NavLink
+            to="/evaluations"
+            className={({ isActive }) =>
+              `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`
+            }
+          >
+            Đánh giá
+          </NavLink>
           <span className={styles.navItemDisabled} aria-disabled="true">
             Hồ sơ sinh viên
           </span>

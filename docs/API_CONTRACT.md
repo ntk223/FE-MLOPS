@@ -180,6 +180,85 @@ Response 200 — cùng shape `BriefOut` như §1.7, kèm thêm trường `edited
 
 Lỗi: 400 body sai/rỗng (`{"detail": …}`), 404 brief không tồn tại. Frontend parse `edited_at` phòng thủ như các trường khác (thiếu → `null`, không crash).
 
+## 1.11 `GET /evaluations` + `GET /evaluations/{run_id}` — scorecard đánh giá tự động (3 gates: data / ml / llm) ✅
+
+Trang frontend "Đánh giá tự động" (`/evaluations`) đọc 2 endpoint này. Backend trả **snake_case**, frontend map sang camelCase như §1.5.
+
+### `GET /evaluations?limit=20` → 200
+
+```json
+{
+  "runs": [
+    {
+      "run_id": "eval-report-20261106",
+      "created_at": "2026-11-06T09:30:00+07:00",
+      "subjects": ["data", "ml"],
+      "combined_summary": { "total": 13, "pass": 12, "warn": 1, "fail": 0, "skipped": 0 },
+      "overall_status": "pass",
+      "reports_available": ["eval_data.json", "eval_ml.json"]
+    }
+  ],
+  "total": 9,
+  "limit": 20
+}
+```
+
+- `overall_status` ∈ `pass` | `warn` | `fail` | `skipped` — badge PASS xanh / WARN vàng / FAIL đỏ / SKIPPED xám.
+- `subjects` = các gate đã chạy trong lần đánh giá (`data` / `ml` / `llm`).
+
+### `GET /evaluations/{run_id}` → 200
+
+```json
+{
+  "run_id": "eval-report-20261106",
+  "created_at": "2026-11-06T09:30:00+07:00",
+  "reports": {
+    "data": { …Scorecard },
+    "ml":   { …Scorecard }
+  }
+}
+```
+
+Shape `Scorecard` (mỗi subject 1 scorecard):
+
+```json
+{
+  "schema_version": "learnguard.eval.v1",
+  "run_id": "eval-report-20261106",
+  "subject": "data",
+  "created_at": "2026-11-06T09:30:00+07:00",
+  "inputs": "snapshot-v1:cutoff27 · 6.510 dòng",
+  "checks": [
+    {
+      "id": "data_missing_values",
+      "name": "Tỷ lệ giá trị thiếu",
+      "status": "pass",
+      "threshold": "<= 5%",
+      "observed": "1.8%",
+      "details": "Mô tả tiếng Việt cho cố vấn…"
+    }
+  ],
+  "summary": { "total": 13, "pass": 12, "warn": 1, "fail": 0, "skipped": 0 }
+}
+```
+
+- `checks[].status` ∈ `pass` | `warn` | `fail` | `skipped` — **status lạ → frontend treat như `skipped`** (badge xám), không crash.
+- `threshold` / `observed` có thể là scalar hoặc object — frontend format gọn thành chuỗi (`object` → `key: value · key: value`); `observed` dài hiển thị dạng expandable (`<details>`).
+- Lỗi: 404 `evaluation_not_found`, 503 `evaluations_dir_not_configured` (→ `HTTP_404` / `HTTP_503` chuẩn §1.6).
+
+Mapping snake_case ↔ camelCase (evaluations):
+
+| Backend | Frontend | Ghi chú |
+|---|---|---|
+| `runs[].run_id` | `runId` | string |
+| `runs[].created_at` | `createdAt` | ISO-8601, hiển thị vi-VN |
+| `runs[].subjects` | `subjects` | string[] |
+| `runs[].combined_summary` | `combinedSummary` | `{ total, pass, warn, fail, skipped }` |
+| `runs[].overall_status` | `overallStatus` | 4 giá trị như trên |
+| `runs[].reports_available` | `reportsAvailable` | string[] tên file report |
+| `reports` | `reports: EvaluationScorecard[]` | object → mảng, sort data → ml → llm |
+| `checks[].id` / `name` / `status` / `threshold` / `observed` / `details` | cùng tên | `threshold`/`observed`/`inputs` được format thành chuỗi |
+
 ---
 
 ## 2. Tính năng backend CHƯA có — frontend chạy MOCK, không đụng API thật
@@ -189,6 +268,7 @@ Lỗi: 400 body sai/rỗng (`{"detail": …}`), 404 brief không tồn tại. Fr
 | **Auth** (POST /auth/login, JWT, RBAC) | ❌ TODO M6 | `LearnGuardApiClient.login()` ném `BACKEND_NOT_IMPLEMENTED`; UI dùng mock login (`VITE_USE_MOCK`), session client-side. **Không gửi credential thật đi đâu cả.** |
 | **Briefs** (generate/read/decide, M8) | ✅ Đã có (§1.7–§1.9) | Real mode: `generateBrief`/`saveBriefDecision` gọi thẳng `/briefs/*`; `fallback_review`/`unavailable` hiển thị nhãn "Brief dự phòng — LLM không khả dụng". Mock mode (demo) giữ mock briefs. |
 | **Brief edit** (PUT /briefs/{brief_id}, §1.10) | ✅ Đã có (§1.10) | Real mode: `editBrief` gọi thẳng `PUT /briefs/{id}` (edit không đổi version/status; `edited_at` reset về null khi regenerate). Mock mode giữ hành vi demo tương ứng. |
+| **Evaluations** (scorecard 3 gates, §1.11) | ✅ Đã có (§1.11) | Real mode: `listEvaluations`/`getEvaluation` gọi thẳng `/evaluations*`. Mock mode: 2 runs demo cứng (1 pass trọn, 1 có warn + fail) với nội dung tiếng Việt. |
 | **Admin import/batches** | ❌ | Không có UI. |
 
 Khi backend bổ sung endpoint, cập nhật mục này + `contracts/api.ts` theo đúng trình tự: backend merge → OpenAPI review → frontend sync. Frontend không tự chế endpoint.
@@ -204,6 +284,7 @@ Khi backend bổ sung endpoint, cập nhật mục này + `contracts/api.ts` the
 | Priority queue, filters, pagination | ✅ real API (sort mặc định `risk_score` DESC do backend) |
 | Student profile: disclaimer, signal attribution, uncertainty | ✅ real API |
 | Brief generate/read/edit/accept/reject | ✅ real API M8 (generate + decide + GET read + edit `PUT /briefs/{id}` §1.10) |
+| Evaluations dashboard (scorecard data/ml/llm) | ✅ trang `/evaluations` — real API §1.11 + mock demo 2 runs |
 | States: insufficient-data, manual-review, API error | ✅ đủ 4 status + error states |
 | Route advisor-only | ✅ client-side guard (backend auth chờ M6) |
 | Component tests, a11y, container | ⬜ TODO tiếp theo |

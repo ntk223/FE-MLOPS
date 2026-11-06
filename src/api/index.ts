@@ -8,9 +8,9 @@ import { MockApiClient } from '../mocks/mock-client';
  * - Mock mode (VITE_USE_MOCK !== 'false', hoặc không có backend URL):
  *   toàn bộ qua MockApiClient.
  * - Real mode (VITE_USE_MOCK === 'false' + VITE_BACKEND_API_URL):
- *   predictions và briefs (M8) chạy real API; **auth vẫn qua mock** vì backend
- *   chưa triển khai M6 — hybrid routing giữ UI dùng được mà không gửi
- *   credential thật đến endpoint nào.
+ *   predictions, briefs (M8) và evaluations (§1.11) chạy real API; **auth vẫn
+ *   qua mock** vì backend chưa triển khai M6 — hybrid routing giữ UI dùng
+ *   được mà không gửi credential thật đến endpoint nào.
  */
 export function createApiClient(): ILearnGuardApiClient {
   const useMock = import.meta.env.VITE_USE_MOCK !== 'false';
@@ -24,7 +24,7 @@ export function createApiClient(): ILearnGuardApiClient {
   const mock = new MockApiClient();
 
   const hybrid: ILearnGuardApiClient = {
-    // Real API — ml_predictions (read-only) + briefs (M8).
+    // Real API — ml_predictions (read-only) + briefs (M8) + evaluations (§1.11).
     listPredictions: (filters) => real.listPredictions(filters),
     getPrediction: (ref) => real.getPrediction(ref),
     listPredictionsForStudent: (studentKey) =>
@@ -33,6 +33,8 @@ export function createApiClient(): ILearnGuardApiClient {
     editBrief: (briefId, edits) => real.editBrief(briefId, edits),
     saveBriefDecision: (briefId, decision) =>
       real.saveBriefDecision(briefId, decision),
+    listEvaluations: (limit) => real.listEvaluations(limit),
+    getEvaluation: (runId) => real.getEvaluation(runId),
 
     // Mock — chờ backend M6 (auth) và stats endpoint.
     login: (credentials) => mock.login(credentials),

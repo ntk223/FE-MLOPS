@@ -1,0 +1,415 @@
+/* Page-scoped styles for the automated evaluations dashboard (§1.11).
+   Follows the visual language of AdvisorDashboardPage.module.css. */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-bottom: var(--space-2);
+}
+
+.title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.01em;
+  color: var(--color-text);
+}
+
+.subtitle {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--color-text-muted);
+}
+
+.headerRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.refreshButton {
+  flex: none;
+  margin-top: var(--space-1);
+}
+
+/* ---- Card region (list + detail) ---- */
+.card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+
+.loadingBox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-12) var(--space-6);
+}
+
+.errorBox {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-6);
+}
+
+.errorActions {
+  display: flex;
+  justify-content: center;
+}
+
+/* ---- Subject filter tabs ---- */
+.tabs {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.tab {
+  padding: 7px 14px;
+  border: 1px solid var(--color-border-soft);
+  border-radius: 999px;
+  background-color: var(--color-surface);
+  font: inherit;
+  font-size: 13px;
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.tab:hover {
+  border-color: var(--color-border-strong);
+}
+
+.tab:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.tabActive {
+  color: var(--color-primary-hover);
+  background-color: var(--color-primary-soft);
+  border-color: var(--color-primary-soft);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* ---- Status badges (PASS / WARN / FAIL / SKIPPED) ---- */
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.statusPass {
+  color: #166534;
+  background-color: #ecfdf3;
+  border: 1px solid #bbf7d0;
+}
+
+.statusWarn {
+  color: #92400e;
+  background-color: #fffbeb;
+  border: 1px solid #fde68a;
+}
+
+.statusFail {
+  color: #991b1b;
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+}
+
+.statusSkipped {
+  color: var(--color-text-muted);
+  background-color: #f1f5f9;
+  border: 1px solid var(--color-border-soft);
+}
+
+/* ---- List view: run row link ---- */
+.runLink {
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  color: var(--color-text);
+  text-decoration: none;
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+
+.runLink:hover {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+.runLink:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--radius-sm);
+}
+
+.mutedText {
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.countsCell {
+  display: inline-flex;
+  gap: 10px;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.countPass {
+  color: #166534;
+  font-weight: var(--font-weight-semibold);
+}
+
+.countWarn {
+  color: #92400e;
+  font-weight: var(--font-weight-semibold);
+}
+
+.countFail {
+  color: #991b1b;
+  font-weight: var(--font-weight-semibold);
+}
+
+.countSkipped {
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* ---- Detail view: back + run header ---- */
+.backRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.runMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.runMetaStrong {
+  font-weight: 650;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Detail view: per-subject sections ---- */
+.subjectSection {
+  padding: var(--space-4) var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.subjectSection + .subjectSection {
+  border-top: 1px solid var(--color-border-soft);
+}
+
+.subjectHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.subjectTitle {
+  margin: 0;
+  font-size: 15.5px;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+}
+
+.subjectTitleHint {
+  font-size: 12px;
+  font-weight: var(--font-weight-normal);
+  color: var(--color-text-faint);
+  margin-left: 6px;
+}
+
+.summaryChips {
+  display: inline-flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.summaryChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+.chipTotal {
+  color: var(--color-text-secondary);
+  background-color: #f1f5f9;
+  border: 1px solid var(--color-border-soft);
+}
+
+.chipPass {
+  color: #166534;
+  background-color: #ecfdf3;
+  border: 1px solid #bbf7d0;
+}
+
+.chipWarn {
+  color: #92400e;
+  background-color: #fffbeb;
+  border: 1px solid #fde68a;
+}
+
+.chipFail {
+  color: #991b1b;
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+}
+
+.chipSkipped {
+  color: var(--color-text-muted);
+  background-color: #f1f5f9;
+  border: 1px solid var(--color-border-soft);
+}
+
+.inputsLine {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--color-text-muted);
+}
+
+/* ---- Checks table ---- */
+.checksTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.checksTable th {
+  text-align: left;
+  font-size: 11.5px;
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-faint);
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--color-border-soft);
+}
+
+.checksTable td {
+  padding: 10px;
+  border-bottom: 1px solid var(--color-border-soft);
+  vertical-align: top;
+}
+
+.checksTable tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.checkName {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+}
+
+.checkId {
+  display: block;
+  margin-top: 2px;
+  font-size: 11.5px;
+  font-weight: var(--font-weight-normal);
+  color: var(--color-text-faint);
+  font-family: var(--font-mono, ui-monospace, monospace);
+}
+
+.checkDetails {
+  color: var(--color-text-secondary);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.thresholdText {
+  display: inline-block;
+  font-size: 11.5px;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.observedPreview {
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-secondary);
+}
+
+/* Expandable observed value (<details>) for long payloads. */
+.observedDetails summary {
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.observedDetails summary:hover {
+  color: var(--color-primary);
+}
+
+.observedDetails[open] summary {
+  margin-bottom: 6px;
+}
+
+.observedFull {
+  margin: 0;
+  padding: 8px 10px;
+  background-color: var(--color-bg-subtle);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--color-text-secondary);
+}
+
+/* ---- Empty state (mockup .placeholder pattern) ---- */
+.emptyWrap {
+  padding: var(--space-10) var(--space-6);
+  display: flex;
+  justify-content: center;
+}
+
+.codeInline {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 12.5px;
+  background-color: var(--color-bg-subtle);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-sm);
+  padding: 2px 6px;
+}
