@@ -11,6 +11,7 @@ import type {
   EvaluationRunSummary,
   EvaluationScorecard,
   EvaluationSummaryCounts,
+  AuditLog,
 } from '../api/client';
 
 const MODULE_CODES = ['AAA', 'BBB', 'CCC', 'DDD', 'EEE'] as const;
@@ -259,8 +260,17 @@ function mockCheck(
   threshold: string | null,
   observed: string,
   details: string,
+  observedRaw?: Record<string, unknown>,
 ): EvaluationCheck {
-  return { id, name, status, threshold, observed, details };
+  return {
+    id,
+    name,
+    status,
+    threshold,
+    observed,
+    ...(observedRaw !== undefined ? { observedRaw } : {}),
+    details,
+  };
 }
 
 function mockScorecard(
@@ -292,7 +302,7 @@ export const MOCK_EVALUATION_RUNS: EvaluationRunSummary[] = [
     runId: RUN_PASS_ID,
     createdAt: RUN_PASS_AT,
     subjects: ['data', 'ml', 'llm'],
-    combinedSummary: mockSummary(10, 0, 0, 0),
+    combinedSummary: mockSummary(11, 0, 0, 0),
     overallStatus: 'pass',
     reportsAvailable: ['eval_data.json', 'eval_ml.json', 'eval_llm.json'],
   },
@@ -415,8 +425,48 @@ export const MOCK_EVALUATION_DETAILS: Record<string, EvaluationDetail> = {
             '1.240 ms',
             '95% brief được sinh trong vòng 1.240 ms.',
           ),
+          mockCheck(
+            'judge_quality',
+            'Chấm điểm chất lượng brief bằng LLM judge',
+            'pass',
+            'overall ≥ 3.0',
+            'Điểm TB 4.02 · 3 brief',
+            'LLM judge chấm từng brief theo 4 tiêu chí (1–5).',
+            {
+              judge_model: 'gemini/gemini-3.1-flash-lite',
+              per_brief: [
+                {
+                  brief: '5001',
+                  grounded: 4.5,
+                  useful: 4.0,
+                  no_fabrication: 5.0,
+                  clarity: 4.0,
+                  overall: 4.38,
+                  issues: '',
+                },
+                {
+                  brief: '5002',
+                  grounded: 4.0,
+                  useful: 3.5,
+                  no_fabrication: 4.5,
+                  clarity: 3.5,
+                  overall: 3.88,
+                  issues: 'Đề xuất hỗ trợ hơi chung chung, nên dẫn chứng dữ liệu cụ thể.',
+                },
+                {
+                  brief: '6001',
+                  grounded: 3.0,
+                  useful: 2.5,
+                  no_fabrication: 4.0,
+                  clarity: 3.0,
+                  overall: 2.8,
+                  issues: 'Phát hiện 1 câu có nguy cơ bịa đặt (no-fabrication 4.0 nhưng grounded thấp).',
+                },
+              ],
+            },
+          ),
         ],
-        mockSummary(2, 0, 0, 0),
+        mockSummary(3, 0, 0, 0),
       ),
     ],
   },
@@ -534,3 +584,157 @@ export const MOCK_EVALUATION_DETAILS: Record<string, EvaluationDetail> = {
     ],
   },
 };
+
+/* ------------------------------------------------------------------ */
+/* MOCK_AUDIT_LOGS — nhật ký hệ thống cho trang /audit (§1.12)         */
+/* ~14 bản ghi demo đa dạng: 2 actor + 1 bản ghi hệ thống (actor null), */
+/* thời gian gần đây, payload ngắn gọn tiếng Việt.                     */
+/* ------------------------------------------------------------------ */
+
+const ACTOR_ADVISOR = {
+  userId: 'u-advisor-01',
+  actorEmail: 'advisor@learnguard.vn',
+  actorName: 'Nguyễn Văn Cố Vấn',
+};
+
+const ACTOR_ADMIN = {
+  userId: 'u-admin-01',
+  actorEmail: 'admin@learnguard.vn',
+  actorName: 'Trần Quản Trị',
+};
+
+export const MOCK_AUDIT_LOGS: AuditLog[] = [
+  {
+    logId: 'log-0001',
+    at: '2026-11-06T09:42:10+07:00',
+    ...ACTOR_ADVISOR,
+    action: 'prediction_list',
+    entity: 'predictions',
+    entityId: null,
+    payload: { limit: 20, status: 'scored', ghi_chu: 'Xem hàng đợi ưu tiên buổi sáng' },
+  },
+  {
+    logId: 'log-0002',
+    at: '2026-11-06T09:38:44+07:00',
+    ...ACTOR_ADVISOR,
+    action: 'brief_generate',
+    entity: 'briefs',
+    entityId: '5001',
+    payload: {
+      code_module: 'AAA',
+      code_presentation: '2013J',
+      student_key: '7bd60ace00000001',
+      model: 'gemini/gemini-3.1-flash-lite',
+    },
+  },
+  {
+    logId: 'log-0003',
+    at: '2026-11-06T09:36:02+07:00',
+    ...ACTOR_ADVISOR,
+    action: 'brief_edit',
+    entity: 'briefs',
+    entityId: '5001',
+    payload: { truong_sua: ['summary', 'supportSuggestions'], do_dai_truoc: 512, do_dai_sau: 468 },
+  },
+  {
+    logId: 'log-0004',
+    at: '2026-11-06T09:31:27+07:00',
+    ...ACTOR_ADVISOR,
+    action: 'decision_accept',
+    entity: 'briefs',
+    entityId: '5001',
+    payload: { quyet_dinh: 'accepted', ghi_chu: 'Đã đồng bộ đề xuất hỗ trợ với sinh viên' },
+  },
+  {
+    logId: 'log-0005',
+    at: '2026-11-06T09:12:55+07:00',
+    ...ACTOR_ADVISOR,
+    action: 'brief_generate',
+    entity: 'briefs',
+    entityId: '5002',
+    payload: { code_module: 'BBB', code_presentation: '2014B', student_key: '7bd60ace00000002' },
+  },
+  {
+    logId: 'log-0006',
+    at: '2026-11-06T09:10:18+07:00',
+    ...ACTOR_ADVISOR,
+    action: 'decision_reject',
+    entity: 'briefs',
+    entityId: '5002',
+    payload: { quyet_dinh: 'rejected', ly_do: 'Brief thiếu dẫn chứng dữ liệu tuần 4' },
+  },
+  {
+    logId: 'log-0007',
+    at: '2026-11-06T08:58:31+07:00',
+    userId: null,
+    actorEmail: null,
+    actorName: null,
+    action: 'evaluation_run',
+    entity: 'evaluations',
+    entityId: 'eval-report-20261106-0930',
+    payload: { kichhoat: 'pipeline_scheduler', gates: ['data', 'ml', 'llm'], ket_qua: 'pass' },
+  },
+  {
+    logId: 'log-0008',
+    at: '2026-11-06T08:45:03+07:00',
+    ...ACTOR_ADMIN,
+    action: 'evaluation_run',
+    entity: 'evaluations',
+    entityId: 'eval-ui-1762403103',
+    payload: { kichhoat: 'manual', nguon: 'Trang Đánh giá tự động', gates: ['data', 'ml', 'llm'] },
+  },
+  {
+    logId: 'log-0009',
+    at: '2026-11-06T08:44:12+07:00',
+    ...ACTOR_ADMIN,
+    action: 'login_success',
+    entity: 'auth',
+    entityId: null,
+    payload: { phuong_thuc: 'password', dia_chi_ip: '10.0.12.44' },
+  },
+  {
+    logId: 'log-0010',
+    at: '2026-11-06T08:43:40+07:00',
+    ...ACTOR_ADMIN,
+    action: 'login_failed',
+    entity: 'auth',
+    entityId: null,
+    payload: { ly_do: 'Sai mật khẩu', so_lan_thu: 1 },
+  },
+  {
+    logId: 'log-0011',
+    at: '2026-11-06T08:46:20+07:00',
+    ...ACTOR_ADMIN,
+    action: 'evaluation_read',
+    entity: 'evaluations',
+    entityId: 'eval-report-20261106-0930',
+    payload: { gates: ['data', 'ml', 'llm'], tai_file: false },
+  },
+  {
+    logId: 'log-0012',
+    at: '2026-11-05T16:20:09+07:00',
+    ...ACTOR_ADVISOR,
+    action: 'login_success',
+    entity: 'auth',
+    entityId: null,
+    payload: { phuong_thuc: 'password', dia_chi_ip: '10.0.12.31' },
+  },
+  {
+    logId: 'log-0013',
+    at: '2026-11-05T15:47:52+07:00',
+    ...ACTOR_ADVISOR,
+    action: 'prediction_list',
+    entity: 'predictions',
+    entityId: null,
+    payload: { limit: 20, status: 'manual_review', ghi_chu: 'Lọc nhóm cần xem xét thủ công' },
+  },
+  {
+    logId: 'log-0014',
+    at: '2026-11-05T14:02:11+07:00',
+    ...ACTOR_ADMIN,
+    action: 'login_failed',
+    entity: 'auth',
+    entityId: null,
+    payload: { ly_do: 'Tài khoản chưa được kích hoạt', so_lan_thu: 2 },
+  },
+];

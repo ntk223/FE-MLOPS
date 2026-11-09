@@ -7,6 +7,7 @@ import type {
   BriefStatus,
   StudentPrediction,
 } from '../contracts/api';
+import type { StudentActivity } from '../api/client';
 import { apiClient } from '../api';
 import { AdvisorService } from '../features/advisor/advisor-service';
 import {
@@ -91,6 +92,31 @@ const STATUS_EXPLANATION: Record<StudentPrediction['status'], string> = {
     'Mô hình không sinh được dự đoán cho sinh viên này trong đợt chạy gần nhất.',
 };
 
+/** Nhãn tiếng Việt cho category click trong activity_breakdown (§1.13). */
+const ACTIVITY_CATEGORY_LABELS: Record<string, string> = {
+  forum: 'Diễn đàn',
+  resources: 'Tài liệu',
+  quiz: 'Quiz',
+  homepage: 'Trang chủ',
+  content: 'Nội dung',
+  subpage: 'Trang con',
+  oucontent: 'Nội dung học',
+  url: 'Liên kết',
+  glossary: 'Thuật ngữ',
+  wiki: 'Wiki',
+};
+
+function activityCategoryLabel(category: string): string {
+  return ACTIVITY_CATEGORY_LABELS[category] ?? category;
+}
+
+/**
+ * Trạng thái tải card "Hành vi 4 tuần trước ngày cắt" (§1.13):
+ * - loading → dòng chờ; error → card hiện dòng nhỏ, không chết trang;
+ * - hidden → 404 student_not_found → ẩn card hoàn toàn.
+ */
+type ActivityLoadState = 'loading' | 'ready' | 'error' | 'hidden';
+
 /** Bản nháp chỉnh sửa brief (PUT /briefs/{id}, docs/API_CONTRACT.md §1.10). */
 interface BriefEditDraft {
   summary: string;
@@ -170,6 +196,140 @@ function StringListEditor({
   );
 }
 
+/** Định dạng title của 1 dot timeline bài nộp (§1.13). */
+function submissionTitle(sub: StudentActivity['submissions'][number]): string {
+  const weight =
+    sub.weight !== null ? ` · trọng số ${sub.weight}` : '';
+  if (sub.status === 'not_submitted') {
+    return `${sub.assessmentType} · không nộp · hạn ngày ${sub.assessmentDay ?? '—'}${weight}`;
+  }
+  const score = sub.score !== null ? ` · điểm ${sub.score}` : '';
+  return `${sub.assessmentType} · nộp ngày ${sub.submittedDay ?? '—'}${score}${weight}`;
+}
+
+/** Class màu của 1 dot timeline theo điểm/nộp bài. */
+function submissionDotClass(
+  sub: StudentActivity['submissions'][number],
+): string {
+  if (sub.status === 'not_submitted' || sub.score === null) {
+    return styles.timelineDotMissing;
+  }
+  if (sub.score >= 60) {
+    return styles.timelineDotGood;
+  }
+  if (sub.score >= 40) {
+    return styles.timelineDotMid;
+  }
+  return styles.timelineDotLow;
+}
+
+/**
+ * Nội dung card "Hành vi 4 tuần trước ngày cắt": bar chart clicks theo tuần,
+ * timeline bài nộp và chips activity_breakdown (§1.13) — thuần CSS.
+ */
+function ActivityPanel({ activity }: { activity: StudentActivity }): ReactElement {
+  const cutoff = activity.cutoffDay;
+  const weeks = activity.weeks;
+  const maxClicks = Math.max(1, ...weeks.map((week) => week.clicks));
+
+  return (
+    <div>
+      {weeks.length === 0 ? (
+        <p className={styles.muted}>Không có dữ liệu hoạt động theo tuần.</p>
+      ) : (
+        <>
+          <div className={styles.activityChart}>
+            {weeks.map((week) => {
+              const heightPct = Math.round((week.clicks / maxClicks) * 100);
+              const isPreCourse = week.fromDay < 0;
+              return (
+                <div key={week.label} className={styles.activityCol}>
+                  <span className={styles.activityValue}>
+                    {week.clicks.toLocaleString('vi-VN')}
+                  </span>
+                  <div className={styles.activityTrack}>
+                    <div
+                      className={
+                        isPreCourse
+                          ? `${styles.activityBar} ${styles.activityBarPre}`
+                          : styles.activityBar
+                      }
+                      style={{ height: `${heightPct}%` }}
+                      title={`${week.clicks} lượt · ${week.daysActive} ngày hoạt động`}
+                    />
+                  </div>
+                  <span className={styles.activityWeekLabel}>{week.label}</span>
+                </div>
+              );
+            })}
+          </div>
+          <p className={styles.activityCutoffNote}>
+            Điểm được tính tại ngày cắt {cutoff}
+          </p>
+        </>
+      )}
+
+      <div className={styles.timelineBlock}>
+        <h3 className={styles.timelineTitle}>Bài nộp trước ngày cắt</h3>
+        {activity.submissions.length === 0 ? (
+          <p className={styles.muted}>Không có bài nộp nào trước ngày cắt.</p>
+        ) : (
+          <>
+            <div className={styles.timelineLegend}>
+              <span>
+                <i className={`${styles.legendDot} ${styles.timelineDotGood}`} />
+                Điểm ≥ 60
+              </span>
+              <span>
+                <i className={`${styles.legendDot} ${styles.timelineDotMid}`} />
+                Điểm 40–59
+              </span>
+              <span>
+                <i className={`${styles.legendDot} ${styles.timelineDotLow}`} />
+                Điểm &lt; 40
+              </span>
+              <span>
+                <i className={`${styles.legendDot} ${styles.timelineDotMissing}`} />
+                Không nộp
+              </span>
+            </div>
+            <div className={styles.activityTimeline}>
+              {activity.submissions.map((sub, index) => {
+                const day = sub.submittedDay ?? sub.assessmentDay ?? 0;
+                const leftPct = cutoff > 0 ? Math.min(100, Math.max(0, (day / cutoff) * 100)) : 0;
+                return (
+                  <span
+                    key={`${sub.assessmentType}-${index}`}
+                    className={`${styles.timelineDot} ${submissionDotClass(sub)}`}
+                    style={{ left: `${leftPct}%` }}
+                    title={submissionTitle(sub)}
+                  />
+                );
+              })}
+            </div>
+            <div className={styles.timelineScale} aria-hidden="true">
+              <span>0</span>
+              <span>Ngày trong khóa</span>
+              <span>{cutoff}</span>
+            </div>
+          </>
+        )}
+      </div>
+
+      {activity.activityBreakdown.length > 0 && (
+        <div className={styles.chipList}>
+          {activity.activityBreakdown.map((category) => (
+            <span key={category.category} className={styles.chip}>
+              {activityCategoryLabel(category.category)}:{' '}
+              {category.clicks.toLocaleString('vi-VN')} lượt
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function StudentDetailPage(): ReactElement {
   const params = useParams<{
     codeModule: string;
@@ -189,6 +349,8 @@ export function StudentDetailPage(): ReactElement {
   const [editValidation, setEditValidation] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ApiError | null>(null);
+  const [activity, setActivity] = useState<StudentActivity | null>(null);
+  const [activityState, setActivityState] = useState<ActivityLoadState>('loading');
 
   useEffect(() => {
     let cancelled = false;
@@ -232,6 +394,51 @@ export function StudentDetailPage(): ReactElement {
               : 'Không thể tải hồ sơ dự đoán.',
         });
         setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [params.codeModule, params.codePresentation, params.studentKey]);
+
+  // Card "Hành vi 4 tuần trước ngày cắt" (§1.13) — fetch song song với hồ
+  // sơ, lỗi riêng KHÔNG làm chết trang; 404 student_not_found → ẩn card.
+  useEffect(() => {
+    if (
+      params.codeModule === undefined ||
+      params.codePresentation === undefined ||
+      params.studentKey === undefined
+    ) {
+      return;
+    }
+    let cancelled = false;
+    setActivityState('loading');
+    apiClient
+      .getStudentActivity({
+        codeModule: decodeURIComponent(params.codeModule),
+        codePresentation: decodeURIComponent(params.codePresentation),
+        studentKey: decodeURIComponent(params.studentKey),
+      })
+      .then((record) => {
+        if (!cancelled) {
+          setActivity(record);
+          setActivityState('ready');
+        }
+      })
+      .catch((cause: unknown) => {
+        if (cancelled) {
+          return;
+        }
+        const code =
+          typeof cause === 'object' &&
+          cause !== null &&
+          typeof (cause as Record<string, unknown>).code === 'string'
+            ? ((cause as Record<string, unknown>).code as string)
+            : 'UNKNOWN_ERROR';
+        setActivityState(
+          code === 'HTTP_404' || code === 'STUDENT_NOT_FOUND'
+            ? 'hidden'
+            : 'error',
+        );
       });
     return () => {
       cancelled = true;
@@ -552,6 +759,25 @@ export function StudentDetailPage(): ReactElement {
           mọi quyết định hỗ trợ cần xác minh trực tiếp với sinh viên.
         </p>
       </Card>
+
+      {activityState !== 'hidden' && (
+        <Card>
+          <h2 className={styles.sectionTitle}>
+            Hành vi 4 tuần trước ngày cắt (day {prediction.cutoffDay})
+          </h2>
+          {activityState === 'loading' && (
+            <p className={styles.muted}>Đang tải dữ liệu hành vi…</p>
+          )}
+          {activityState === 'error' && (
+            <p className={styles.activityLoadError} role="alert">
+              Không tải được dữ liệu hành vi.
+            </p>
+          )}
+          {activityState === 'ready' && activity !== null && (
+            <ActivityPanel activity={activity} />
+          )}
+        </Card>
+      )}
 
       <Card>
         <h2 className={styles.sectionTitle}>Bản tóm tắt tư vấn (brief)</h2>

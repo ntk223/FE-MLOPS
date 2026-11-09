@@ -5,6 +5,7 @@ import styles from './ui.module.css';
 export type BadgeColor =
   | 'neutral'
   | 'primary'
+  | 'success'
   | 'scored'
   | 'insufficient'
   | 'manual'
@@ -18,6 +19,7 @@ export interface BadgeProps {
 const colorClass: Record<BadgeColor, string> = {
   neutral: styles.badgeNeutral,
   primary: styles.badgePrimary,
+  success: styles.badgeSuccess,
   scored: styles.badgeScored,
   insufficient: styles.badgeInsufficient,
   manual: styles.badgeManual,

@@ -3,6 +3,7 @@ import type { FormEvent, ReactElement } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ApiError } from '../contracts/api';
 import { Button, TextField } from '../components/ui';
+import { readSession } from '../utils/session';
 import styles from './LoginPage.module.css';
 
 export interface LoginPageProps {
@@ -73,7 +74,9 @@ export function LoginPage({ onSubmit }: LoginPageProps): ReactElement {
     setSubmitting(true);
     onSubmit(email.trim(), password)
       .then(() => {
-        navigate('/', { replace: true });
+        // Về trang chủ theo vai: Quản trị → Tổng quan, Cố vấn → Hàng đợi.
+        const session = readSession();
+        navigate(session?.role === 'admin' ? '/overview' : '/', { replace: true });
       })
       .catch((error: unknown) => {
         setSubmitError(
@@ -90,20 +93,43 @@ export function LoginPage({ onSubmit }: LoginPageProps): ReactElement {
   return (
     <div className={styles.page}>
       <div className={styles.grid} aria-hidden="true" />
-      <div className={styles.card}>
-        <header className={styles.header}>
-          <div className={styles.brand}>
-            <span className={styles.logo} aria-hidden="true">
-              LG
+      <div className={styles.layout}>
+        <aside className={styles.hero}>
+          <div className={styles.heroBrand}>
+            <span className={styles.heroMark} aria-hidden="true" />
+            <span className={styles.heroName}>
+              Learn<span>Guard</span>
             </span>
-            <h1 className={styles.title}>
-              Learn<span className={styles.titleAccent}>Guard</span>
-            </h1>
           </div>
-          <p className={styles.tagline}>
-            Hỗ trợ phát hiện sớm sinh viên có nguy cơ không hoàn thành học phần
+          <p className={styles.heroTagline}>
+            Nền tảng MLOps hỗ trợ phát hiện sớm sinh viên có nguy cơ không hoàn
+            thành học phần.
           </p>
-        </header>
+          <ul className={styles.heroValues}>
+            <li>Chấm điểm rủi ro tự động theo kỳ học</li>
+            <li>Giải thích SHAP — tín hiệu đóng góp minh bạch</li>
+            <li>Brief LLM hỗ trợ cố vấn học tập</li>
+            <li>Đánh giá tự động 3 gates (data / ml / llm)</li>
+          </ul>
+          <p className={styles.heroFoot}>
+            Điểm nguy cơ là đầu vào tham khảo — không phải kết luận.
+          </p>
+        </aside>
+
+        <div className={styles.card}>
+          <header className={styles.header}>
+            <div className={styles.brand}>
+              <span className={styles.logo} aria-hidden="true">
+                LG
+              </span>
+              <h1 className={styles.title}>
+                Learn<span className={styles.titleAccent}>Guard</span>
+              </h1>
+            </div>
+            <p className={styles.tagline}>
+              Hỗ trợ phát hiện sớm sinh viên có nguy cơ không hoàn thành học phần
+            </p>
+          </header>
 
         {submitError !== null ? (
           <p className={styles.formError} role="alert">
@@ -171,8 +197,13 @@ export function LoginPage({ onSubmit }: LoginPageProps): ReactElement {
                 </li>
               ))}
             </ul>
+            <p className={styles.demoHint}>
+              Cố vấn: hàng đợi &amp; hồ sơ sinh viên · Quản trị: đánh giá hệ
+              thống &amp; nhật ký
+            </p>
           </aside>
         ) : null}
+        </div>
       </div>
     </div>
   );

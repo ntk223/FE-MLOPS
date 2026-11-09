@@ -29,16 +29,16 @@
   color: var(--color-text-muted);
 }
 
-/* ---- Filter bar (mockup .filter-bar) ---- */
+/* ---- Filter bar ---- */
 .filterBar {
   display: flex;
   align-items: flex-end;
   flex-wrap: wrap;
   gap: var(--space-3);
   background-color: var(--color-surface);
-  border: 1px solid var(--color-border-soft);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
   padding: 14px 16px;
 }
 
@@ -46,13 +46,6 @@
   flex: 0 1 200px;
   min-width: 180px;
   max-width: 240px;
-}
-
-/* ---- Summary strip (mockup .summary-strip) ---- */
-.summaryStrip {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: var(--space-3);
 }
 
 /* ---- Table card (mockup .table-card) ---- */
@@ -63,9 +56,9 @@
 
 .tableCard {
   background-color: var(--color-surface);
-  border: 1px solid var(--color-border-soft);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
   overflow: hidden;
 }
 
@@ -220,9 +213,56 @@
   color: #b45309;
 }
 
+/* ---- Dòng "Cập nhật lúc HH:mm:ss" + caution note ---- */
+.updatedAt {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 0;
+  font-size: 12.5px;
+  color: var(--color-text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Skeleton shimmer (thay spinner) ---- */
+.skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: var(--space-6);
+}
+
+.skeletonRow {
+  height: 18px;
+  border-radius: 6px;
+  background: linear-gradient(
+    90deg,
+    #e8ecf3 25%,
+    #f7f9fc 50%,
+    #e8ecf3 75%
+  );
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes skeletonShimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeletonRow {
+    animation: none;
+  }
+}
+
 /* Summary strip collapses to 2 columns on narrow content areas. */
 @media (max-width: 900px) {
-  .summaryStrip {
-    grid-template-columns: repeat(2, 1fr);
+  .filterBar {
+    align-items: stretch;
   }
 }

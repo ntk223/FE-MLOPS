@@ -261,6 +261,95 @@ Mapping snake_case ↔ camelCase (evaluations):
 
 ---
 
+## 1.12 `GET /audit-logs` — nhật ký hệ thống (backend đang code song song theo spec này) 🚧
+
+Trang frontend "Nhật ký hệ thống" (`/audit`, **chỉ Quản trị**) đọc endpoint này. Backend trả **snake_case**, frontend map sang camelCase như §1.5.
+
+### `GET /audit-logs?limit=50&action=&entity=` → 200
+
+```json
+{
+  "logs": [
+    {
+      "log_id": "log-0002",
+      "at": "2026-11-06T09:38:44+07:00",
+      "user_id": "u-advisor-01",
+      "actor_email": "advisor@learnguard.vn",
+      "actor_name": "Nguyễn Văn Cố Vấn",
+      "action": "brief_generate",
+      "entity": "briefs",
+      "entity_id": "5001",
+      "payload": { "code_module": "AAA", "student_key": "7bd60ace00000001" }
+    }
+  ],
+  "total": 14,
+  "limit": 50,
+  "actions": ["brief_edit", "brief_generate", "decision_accept", "decision_reject", "evaluation_read", "evaluation_run", "login_failed", "login_success", "prediction_list"],
+  "entities": ["auth", "briefs", "evaluations", "predictions"]
+}
+```
+
+- Query params (tất cả optional): `limit` (mặc định 50), `action`, `entity` — filter chính xác theo giá trị.
+- `logs` sort **mới nhất trước** theo `at`.
+- `actions` / `entities` = danh sách giá trị duy nhất để frontend render bộ lọc "Hành động" / "Đối tượng".
+- `actor_*` = `null` → hệ thống tự động (scheduler/pipeline) — frontend hiển thị "Hệ thống".
+- `payload` = object tùy hành động hoặc `null` — frontend hiển thị dạng `<details>` JSON pretty, payload hỏng không crash UI.
+- UI map `action` → nhãn tiếng Việt + màu badge: `brief_*`/`decision_*` indigo · `evaluation_*` success · `login_success` warn · `login_failed` đỏ · còn lại neutral. Action lạ → giữ string gốc, badge neutral.
+- Lỗi: 503 `database_not_configured` (→ `HTTP_503` chuẩn §1.6) — frontend hiển thị error state + nút Thử lại.
+
+Mapping snake_case ↔ camelCase (audit-logs):
+
+| Backend | Frontend | Ghi chú |
+|---|---|---|
+| `logs[].log_id` | `logId` | string, key cho React |
+| `logs[].at` | `at` | ISO-8601, hiển thị vi-VN full |
+| `logs[].user_id` / `actor_email` / `actor_name` | `userId` / `actorEmail` / `actorName` | null → "Hệ thống" |
+| `logs[].action` | `action` | nhãn VN qua `ACTION_LABEL` |
+| `logs[].entity` / `entity_id` | `entity` / `entityId` | hiển thị `entity #entity_id` |
+| `logs[].payload` | `payload` | object \| null (JSON string hợp lệ được parse) |
+| `total` / `limit` / `actions` / `entities` | cùng tên | bộ đếm + option cho bộ lọc |
+
+---
+
+## 1.13 `GET /predictions/{code_module}/{code_presentation}/{student_key}/activity` — hành vi 4 tuần trước ngày cắt (backend đang code song song theo spec này) 🚧
+
+Trang Hồ sơ sinh viên (`StudentDetailPage`) đọc endpoint này cho card "Hành vi 4 tuần trước ngày cắt": bar chart clicks theo tuần + timeline bài nộp. Backend trả **snake_case**, frontend map sang camelCase như §1.5. Card fetch song song với hồ sơ; lỗi KHÔNG làm chết trang.
+
+### `GET /predictions/{m}/{p}/{s}/activity` → 200
+
+```json
+{
+  "cutoff_day": 27,
+  "weeks": [
+    { "label": "Trước khóa", "from_day": -14, "to_day": -1, "clicks": 45, "days_active": 3 },
+    { "label": "Tuần 1", "from_day": 0, "to_day": 6, "clicks": 210, "days_active": 6 },
+    { "label": "Tuần 2", "from_day": 7, "to_day": 13, "clicks": 185, "days_active": 5 },
+    { "label": "Tuần 3", "from_day": 14, "to_day": 20, "clicks": 42, "days_active": 3 },
+    { "label": "Tuần 4", "from_day": 21, "to_day": 27, "clicks": 18, "days_active": 2 }
+  ],
+  "submissions": [
+    { "assessment_type": "TMA", "assessment_day": 12, "submitted_day": 18, "score": 78, "weight": 10, "status": "submitted" },
+    { "assessment_type": "CMA", "assessment_day": 24, "submitted_day": null, "score": null, "weight": 15, "status": "not_submitted" }
+  ],
+  "activity_breakdown": [
+    { "category": "forum", "clicks": 120 },
+    { "category": "resources", "clicks": 96 },
+    { "category": "quiz", "clicks": 58 },
+    { "category": "homepage", "clicks": 40 }
+  ]
+}
+```
+
+- `weeks` = 5 bucket cố định: "Trước khóa" (`from_day` âm) + Tuần 1–4 trong khoảng 0 → `cutoff_day`. Frontend vẽ bar chart: cột div height theo % `clicks`/max, gradient accent, cột "Trước khóa" mờ hơn (opacity .55); hover tooltip "`{clicks}` lượt · `{days_active}` ngày hoạt động".
+- `submissions` = timeline các bài assessed. Dot đặt theo `submitted_day` (fallback `assessment_day`) trên trục 0 → `cutoff_day`. Màu dot theo điểm: xanh ≥ 60 · vàng 40–59 · đỏ < 40 · xám rỗng `not_submitted`. Tooltip: "`{type}` · nộp ngày `{d}` · điểm `{s}` · trọng số `{w}`".
+- `score` / `submitted_day` = `null` khi chưa nộp/chưa chấm — frontend hiển thị dot xám, không crash.
+- `activity_breakdown` = tổng click theo category site — frontend render chips "Nhãn VN: N lượt" dưới cùng (category lạ giữ string gốc).
+- Mapping snake_case ↔ camelCase: `cutoff_day`→`cutoffDay`, `weeks[]`→`weeks[]` (`from_day`/`to_day`/`days_active`→`fromDay`/`toDay`/`daysActive`), `submissions[]`→`submissions[]` (`assessment_type`/`assessment_day`/`submitted_day`/`weight`→`assessmentType`/`assessmentDay`/`submittedDay`/`weight`), `activity_breakdown[]`→`activityBreakdown[]`.
+- Lỗi: 404 `student_not_found` (→ `HTTP_404` chuẩn §1.6) — frontend **ẩn card hoàn toàn**; 503 `oulad_data_not_configured` (→ `HTTP_503`) — frontend hiển thị dòng nhỏ "Không tải được dữ liệu hành vi", các card khác hoạt động bình thường.
+- Payload hỏng (weeks/submissions/breakdown không phải array, trường thiếu) → frontend fallback về giá trị an toàn (mảng rỗng / 0 / null), không crash UI.
+
+---
+
 ## 2. Tính năng backend CHƯA có — frontend chạy MOCK, không đụng API thật
 
 | Tính năng | Backend | Quy ước frontend đến khi backend sẵn sàng |
@@ -269,6 +358,8 @@ Mapping snake_case ↔ camelCase (evaluations):
 | **Briefs** (generate/read/decide, M8) | ✅ Đã có (§1.7–§1.9) | Real mode: `generateBrief`/`saveBriefDecision` gọi thẳng `/briefs/*`; `fallback_review`/`unavailable` hiển thị nhãn "Brief dự phòng — LLM không khả dụng". Mock mode (demo) giữ mock briefs. |
 | **Brief edit** (PUT /briefs/{brief_id}, §1.10) | ✅ Đã có (§1.10) | Real mode: `editBrief` gọi thẳng `PUT /briefs/{id}` (edit không đổi version/status; `edited_at` reset về null khi regenerate). Mock mode giữ hành vi demo tương ứng. |
 | **Evaluations** (scorecard 3 gates, §1.11) | ✅ Đã có (§1.11) | Real mode: `listEvaluations`/`getEvaluation` gọi thẳng `/evaluations*`. Mock mode: 2 runs demo cứng (1 pass trọn, 1 có warn + fail) với nội dung tiếng Việt. |
+| **Audit logs** (GET /audit-logs, §1.12) | 🚧 Đang code song song theo đúng §1.12 | Real mode: `listAuditLogs` gọi thẳng `/audit-logs*` — 503 `database_not_configured` → error state + Thử lại. Mock mode: ~14 bản ghi demo (2 actor + 1 bản ghi hệ thống) hỗ trợ filter action/entity, độ trễ 300–700ms. Trang `/audit` chỉ hiển thị cho vai **Quản trị**. |
+| **Student activity** (GET /predictions/…/activity, §1.13) | 🚧 Đang code song song theo đúng §1.13 | Real mode: `getStudentActivity` gọi thẳng `/predictions/{m}/{p}/{s}/activity` — 404 `student_not_found` → ẩn card, 503 `oulad_data_not_configured` → dòng nhỏ "Không tải được dữ liệu hành vi". Mock mode: data hành vi sinh deterministic theo status dự đoán (insufficient_data ≈ 0 · scored rủi ro cao → tuần 3–4 rơi mạnh · còn lại đều). |
 | **Admin import/batches** | ❌ | Không có UI. |
 
 Khi backend bổ sung endpoint, cập nhật mục này + `contracts/api.ts` theo đúng trình tự: backend merge → OpenAPI review → frontend sync. Frontend không tự chế endpoint.
@@ -285,6 +376,7 @@ Khi backend bổ sung endpoint, cập nhật mục này + `contracts/api.ts` the
 | Student profile: disclaimer, signal attribution, uncertainty | ✅ real API |
 | Brief generate/read/edit/accept/reject | ✅ real API M8 (generate + decide + GET read + edit `PUT /briefs/{id}` §1.10) |
 | Evaluations dashboard (scorecard data/ml/llm) | ✅ trang `/evaluations` — real API §1.11 + mock demo 2 runs |
+| Nhật ký hệ thống (`/audit`, admin-only) | 🚧 trang `/audit` — GET /audit-logs §1.12 (backend đang code song song), mock demo ~14 bản ghi |
 | States: insufficient-data, manual-review, API error | ✅ đủ 4 status + error states |
-| Route advisor-only | ✅ client-side guard (backend auth chờ M6) |
+| Route advisor-only | ✅ client-side guard theo vai (§1.12 + App.tsx): Cố vấn → hàng đợi; Quản trị → đánh giá + nhật ký; vào nhầm route → trang "Không có quyền truy cập" |
 | Component tests, a11y, container | ⬜ TODO tiếp theo |

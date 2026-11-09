@@ -81,7 +81,108 @@ export interface EvaluationCheck {
   threshold: string | null;
   /** Giá trị quan sát được, đã format gọn (object → "key: value · …"). */
   observed: string;
+  /**
+   * Raw observed giữ nguyên shape gốc khi parse được (object) — dùng cho
+   * render chuyên biệt (vd. bảng điểm judge_quality). undefined nếu observed
+   * là string/scalar thuần.
+   */
+  observedRaw?: Record<string, unknown>;
   details: string;
+}
+
+/* ------------------------------------------------------------------ */
+/* Bảng điểm judge (check 'judge_quality', subject 'llm')              */
+/* ------------------------------------------------------------------ */
+
+/** 1 dòng brief trong observedRaw.per_brief của check judge_quality. */
+export interface EvaluationJudgeRow {
+  /** Nhãn brief (brief_id / student_key / …) — fallback "<brief N>". */
+  brief: string;
+  grounded: number | null;
+  useful: number | null;
+  noFabrication: number | null;
+  clarity: number | null;
+  overall: number | null;
+  /** Ghi chú / issues của judge (nếu có). */
+  notes: string;
+}
+
+function judgeNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function judgeBriefLabel(record: Record<string, unknown>, index: number): string {
+  for (const key of ['brief', 'brief_id', 'student_key', 'name']) {
+    if (typeof record[key] === 'string' && record[key] !== '') {
+      return record[key] as string;
+    }
+    if (typeof record[key] === 'number' && Number.isFinite(record[key])) {
+      return String(record[key]);
+    }
+  }
+  return `<brief ${index + 1}>`;
+}
+
+function judgeNotes(record: Record<string, unknown>): string {
+  for (const key of ['issues', 'notes', 'note', 'ghi_chu']) {
+    if (typeof record[key] === 'string' && record[key] !== '') {
+      return record[key];
+    }
+  }
+  return '';
+}
+
+/**
+ * Parse observedRaw.per_brief thành các dòng bảng điểm judge — payload hỏng
+ * (không phải array / entry thiếu dữ liệu) → rỗng, không crash UI.
+ */
+export function parseJudgeRows(raw: unknown): EvaluationJudgeRow[] {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+  const rows: EvaluationJudgeRow[] = [];
+  for (let index = 0; index < raw.length; index += 1) {
+    const entry = raw[index];
+    if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) {
+      continue;
+    }
+    const record = entry as Record<string, unknown>;
+    rows.push({
+      brief: judgeBriefLabel(record, index),
+      grounded: judgeNumber(record['grounded']),
+      useful: judgeNumber(record['useful']),
+      noFabrication: judgeNumber(record['no_fabrication']),
+      clarity: judgeNumber(record['clarity']),
+      overall: judgeNumber(record['overall']),
+      notes: judgeNotes(record),
+    });
+  }
+  return rows;
+}
+
+/* ------------------------------------------------------------------ */
+/* Run đánh giá thủ công (POST /evaluations/run + GET /evaluations/run-status) */
+/* ------------------------------------------------------------------ */
+
+/** Trạng thái của lần chạy đánh giá thủ công gần nhất. */
+export type EvaluationRunStatus = 'idle' | 'running' | 'done' | 'error';
+
+/** Body GET /evaluations/run-status (FROZEN CONTRACT §2). */
+export interface EvaluationRunStatusInfo {
+  status: EvaluationRunStatus;
+  runId: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  /** Tổng hợp CombinedSummary — null khi chưa xong. */
+  summary: EvaluationSummaryCounts | null;
+  /** Text lỗi khi status = 'error'. */
+  error: string | null;
+}
+
+/** Body POST /evaluations/run → 202 {"run_id": "...", "status": "started"}. */
+export interface EvaluationTriggerResult {
+  runId: string;
+  status: string;
 }
 
 /** Scorecard của 1 subject (data/ml/llm) trong GET /evaluations/{run_id}. */
@@ -101,6 +202,97 @@ export interface EvaluationDetail {
   createdAt: string;
   /** Scorecard theo subject, đã sort theo thứ tự data → ml → llm → còn lại. */
   reports: EvaluationScorecard[];
+}
+
+/* ------------------------------------------------------------------ */
+/* Nhật ký hệ thống — GET /audit-logs (§1.12)                          */
+/* ------------------------------------------------------------------ */
+
+/** Một dòng nhật ký hệ thống (audit_logs) — đã map sang camelCase. */
+export interface AuditLog {
+  logId: string;
+  /** ISO-8601 — thời điểm ghi log. */
+  at: string;
+  /** null → hệ thống tự động (hiển thị "Hệ thống"). */
+  userId: string | null;
+  actorEmail: string | null;
+  actorName: string | null;
+  /** vd. brief_generate, decision_accept, evaluation_run, login_success… */
+  action: string;
+  /** vd. briefs, evaluations, predictions, auth… */
+  entity: string;
+  entityId: string | null;
+  /** Payload bổ sung (object tùy hành động) — null nếu không có. */
+  payload: Record<string, unknown> | null;
+}
+
+/** Kết quả GET /audit-logs. */
+export interface AuditLogListResult {
+  logs: AuditLog[];
+  /** Tổng số log khớp bộ lọc (không giới hạn bởi limit). */
+  total: number;
+  limit: number;
+  /** Danh sách action duy nhất — dùng cho bộ lọc "Hành động". */
+  actions: string[];
+  /** Danh sách entity duy nhất — dùng cho bộ lọc "Đối tượng". */
+  entities: string[];
+}
+
+/** Tham số query GET /audit-logs (§1.12). */
+export interface AuditLogQuery {
+  limit?: number;
+  action?: string;
+  entity?: string;
+}
+
+/* ------------------------------------------------------------------ */
+/* Hành vi 4 tuần trước ngày cắt — GET /predictions/.../activity (§1.13) */
+/* ------------------------------------------------------------------ */
+
+/** 1 bucket tuần trong chart hoạt động (đã map camelCase). */
+export interface ActivityWeek {
+  /** vd. "Trước khóa", "Tuần 1"… "Tuần 4". */
+  label: string;
+  /** Ngày bắt đầu bucket (âm = trước khi khóa bắt đầu). */
+  fromDay: number;
+  /** Ngày kết thúc bucket. */
+  toDay: number;
+  /** Tổng lượt click trong bucket. */
+  clicks: number;
+  /** Số ngày có hoạt động (≥ 1 click). */
+  daysActive: number;
+}
+
+/** Trạng thái nộp bài của 1 bài assessed. */
+export type ActivitySubmissionStatus = 'submitted' | 'not_submitted';
+
+/** 1 bài nộp trong timeline (đã map camelCase). */
+export interface ActivitySubmission {
+  /** vd. "TMA", "CMA", "Exam". */
+  assessmentType: string;
+  /** Hạn nộp theo ngày khóa — null nếu backend không gửi. */
+  assessmentDay: number | null;
+  /** Ngày nộp thực tế — null khi chưa nộp / không có dữ liệu. */
+  submittedDay: number | null;
+  /** Điểm — null khi chưa chấm / chưa nộp. */
+  score: number | null;
+  /** Trọng số % — null nếu không có. */
+  weight: number | null;
+  status: ActivitySubmissionStatus;
+}
+
+/** 1 nhóm click theo category site (forum, resources, …). */
+export interface ActivityCategory {
+  category: string;
+  clicks: number;
+}
+
+/** Body GET /predictions/{m}/{p}/{s}/activity (§1.13) — đã map camelCase. */
+export interface StudentActivity {
+  cutoffDay: number;
+  weeks: ActivityWeek[];
+  submissions: ActivitySubmission[];
+  activityBreakdown: ActivityCategory[];
 }
 
 /**
@@ -135,6 +327,28 @@ export interface ILearnGuardApiClient {
    * Lỗi: 404 evaluation_not_found, 503 evaluations_dir_not_configured.
    */
   getEvaluation(runId: string): Promise<EvaluationDetail>;
+  /**
+   * POST /evaluations/run (FROZEN CONTRACT §1) — kích hoạt đánh giá thủ công.
+   * 202 {run_id, status:"started"}; lỗi: 409 evaluation_already_running,
+   * 503 ml_runner_not_configured, 503 evaluations_dir_not_configured.
+   */
+  triggerEvaluationRun(): Promise<EvaluationTriggerResult>;
+  /**
+   * GET /evaluations/run-status (FROZEN CONTRACT §2) — trạng thái lần chạy
+   * gần nhất; UI poll mỗi 2.5s khi running.
+   */
+  getEvaluationRunStatus(): Promise<EvaluationRunStatusInfo>;
+  /**
+   * GET /audit-logs?limit=&action=&entity= (§1.12) — nhật ký hệ thống,
+   * mới nhất trước. Lỗi: 503 database_not_configured.
+   */
+  listAuditLogs(params?: AuditLogQuery): Promise<AuditLogListResult>;
+  /**
+   * GET /predictions/{module}/{presentation}/{studentKey}/activity (§1.13) —
+   * hành vi 4 tuần trước ngày cắt: clicks theo tuần + timeline bài nộp.
+   * Lỗi: 404 student_not_found, 503 oulad_data_not_configured.
+   */
+  getStudentActivity(ref: PredictionRef): Promise<StudentActivity>;
 }
 
 const REQUEST_TIMEOUT_MS = 15_000;
@@ -179,6 +393,16 @@ interface RawPage {
   total: number;
   limit: number;
   offset: number;
+}
+
+/** PredictionStatsOut của backend (GET /predictions/stats). */
+interface RawQueueStats {
+  flagged_total: number;
+  scored: number;
+  insufficient_data: number;
+  manual_review: number;
+  no_prediction: number;
+  above_threshold: number;
 }
 
 /** BriefOut của backend (POST /briefs/generate, GET /briefs/{brief_id}). */
@@ -375,6 +599,287 @@ interface RawEvaluationCheck {
   details?: unknown;
 }
 
+/** Body POST /evaluations/run → 202 (FROZEN CONTRACT §1). */
+interface RawEvaluationTrigger {
+  run_id?: unknown;
+  status?: unknown;
+}
+
+/** Body GET /evaluations/run-status (FROZEN CONTRACT §2). */
+interface RawEvaluationRunStatus {
+  status?: unknown;
+  run_id?: unknown;
+  started_at?: unknown;
+  finished_at?: unknown;
+  summary?: unknown;
+  error?: unknown;
+}
+
+/** Một dòng GET /audit-logs — snake_case từ backend (§1.12). */
+interface RawAuditLog {
+  log_id?: unknown;
+  at?: unknown;
+  user_id?: unknown;
+  actor_email?: unknown;
+  actor_name?: unknown;
+  action?: unknown;
+  entity?: unknown;
+  entity_id?: unknown;
+  payload?: unknown;
+}
+
+/** Body GET /audit-logs — snake_case từ backend (§1.12). */
+interface RawAuditLogList {
+  logs?: unknown;
+  total?: unknown;
+  limit?: unknown;
+  actions?: unknown;
+  entities?: unknown;
+}
+
+/** payload: object trực tiếp; JSON string hợp lệ → parse; khác → null. */
+function toAuditPayload(raw: unknown): Record<string, unknown> | null {
+  let candidate = raw;
+  if (typeof candidate === 'string') {
+    const trimmed = candidate.trim();
+    if (!trimmed.startsWith('{') || !trimmed.endsWith('}')) {
+      return null;
+    }
+    try {
+      candidate = JSON.parse(trimmed);
+    } catch {
+      return null;
+    }
+  }
+  if (
+    typeof candidate === 'object' &&
+    candidate !== null &&
+    !Array.isArray(candidate)
+  ) {
+    return candidate as Record<string, unknown>;
+  }
+  return null;
+}
+
+/** Map 1 dòng audit log defensively — trường lạ/null về giá trị an toàn. */
+function toAuditLog(raw: RawAuditLog): AuditLog {
+  const nullableString = (value: unknown): string | null =>
+    typeof value === 'string' && value !== '' ? value : null;
+  const stringOrNumber = (value: unknown): string | null => {
+    if (typeof value === 'string' && value !== '') {
+      return value;
+    }
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return String(value);
+    }
+    return null;
+  };
+  return {
+    logId: nullableString(raw.log_id) ?? `log-${Date.now()}`,
+    at: nullableString(raw.at) ?? '',
+    userId: nullableString(raw.user_id),
+    actorEmail: nullableString(raw.actor_email),
+    actorName: nullableString(raw.actor_name),
+    action: nullableString(raw.action) ?? 'unknown',
+    entity: nullableString(raw.entity) ?? 'unknown',
+    entityId: stringOrNumber(raw.entity_id),
+    payload: toAuditPayload(raw.payload),
+  };
+}
+
+/** Map body GET /audit-logs defensively — mảng hỏng → rỗng, không crash UI. */
+function toAuditLogList(
+  raw: RawAuditLogList,
+  fallbackLimit: number,
+): AuditLogListResult {
+  const logs = Array.isArray(raw.logs)
+    ? raw.logs.map((entry) =>
+        toAuditLog(
+          (typeof entry === 'object' && entry !== null
+            ? entry
+            : {}) as RawAuditLog,
+        ),
+      )
+    : [];
+  const stringList = (value: unknown): string[] =>
+    Array.isArray(value)
+      ? value.filter((item): item is string => typeof item === 'string')
+      : [];
+  return {
+    logs,
+    total:
+      typeof raw.total === 'number' && Number.isFinite(raw.total)
+        ? raw.total
+        : logs.length,
+    limit:
+      typeof raw.limit === 'number' && Number.isFinite(raw.limit)
+        ? raw.limit
+        : fallbackLimit,
+    actions: stringList(raw.actions),
+    entities: stringList(raw.entities),
+  };
+}
+
+/* ---- Hành vi 4 tuần trước ngày cắt (§1.13) — snake_case từ backend ---- */
+
+/** Body GET /predictions/{m}/{p}/{s}/activity — snake_case từ backend. */
+interface RawStudentActivity {
+  cutoff_day?: unknown;
+  weeks?: unknown;
+  submissions?: unknown;
+  activity_breakdown?: unknown;
+}
+
+const ACTIVITY_SUBMISSION_STATUSES: readonly ActivitySubmissionStatus[] = [
+  'submitted',
+  'not_submitted',
+];
+
+/** Đọc số nguyên defensively — thiếu/lạ/thập phân lạ → fallback. */
+function activityInt(value: unknown, fallback: number): number {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? Math.round(value)
+    : fallback;
+}
+
+/** Đọc số nullable defensively — thiếu/lạ → null. */
+function activityNullableNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+/** Map 1 bucket tuần defensively — trường thiếu về giá trị an toàn. */
+function toActivityWeek(raw: unknown, index: number): ActivityWeek {
+  const record =
+    typeof raw === 'object' && raw !== null && !Array.isArray(raw)
+      ? (raw as Record<string, unknown>)
+      : {};
+  return {
+    label:
+      typeof record['label'] === 'string' && record['label'] !== ''
+        ? record['label']
+        : `Tuần ${index}`,
+    fromDay: activityInt(record['from_day'], 0),
+    toDay: activityInt(record['to_day'], 0),
+    clicks: Math.max(0, activityInt(record['clicks'], 0)),
+    daysActive: Math.max(0, activityInt(record['days_active'], 0)),
+  };
+}
+
+/** Map 1 bài nộp defensively — status lạ → 'not_submitted', score null. */
+function toActivitySubmission(raw: unknown): ActivitySubmission {
+  const record =
+    typeof raw === 'object' && raw !== null && !Array.isArray(raw)
+      ? (raw as Record<string, unknown>)
+      : {};
+  const status = ACTIVITY_SUBMISSION_STATUSES.includes(
+    record['status'] as ActivitySubmissionStatus,
+  )
+    ? (record['status'] as ActivitySubmissionStatus)
+    : 'not_submitted';
+  return {
+    assessmentType:
+      typeof record['assessment_type'] === 'string' &&
+      record['assessment_type'] !== ''
+        ? record['assessment_type']
+        : 'N/A',
+    assessmentDay: activityNullableNumber(record['assessment_day']),
+    submittedDay: activityNullableNumber(record['submitted_day']),
+    score: activityNullableNumber(record['score']),
+    weight: activityNullableNumber(record['weight']),
+    status,
+  };
+}
+
+/** Map 1 dòng activity_breakdown defensively — category lạ vẫn giữ nguyên. */
+function toActivityCategory(raw: unknown): ActivityCategory {
+  const record =
+    typeof raw === 'object' && raw !== null && !Array.isArray(raw)
+      ? (raw as Record<string, unknown>)
+      : {};
+  return {
+    category:
+      typeof record['category'] === 'string' && record['category'] !== ''
+        ? record['category']
+        : 'other',
+    clicks: Math.max(0, activityInt(record['clicks'], 0)),
+  };
+}
+
+/** Map body GET …/activity defensively — payload hỏng không crash UI. */
+function toStudentActivity(raw: RawStudentActivity): StudentActivity {
+  const weeks = Array.isArray(raw.weeks)
+    ? raw.weeks.map((entry, index) => toActivityWeek(entry, index))
+    : [];
+  const submissions = Array.isArray(raw.submissions)
+    ? raw.submissions.map((entry) => toActivitySubmission(entry))
+    : [];
+  const breakdown = Array.isArray(raw.activity_breakdown)
+    ? raw.activity_breakdown.map((entry) => toActivityCategory(entry))
+    : [];
+  return {
+    cutoffDay: activityInt(raw.cutoff_day, 27),
+    weeks,
+    submissions,
+    activityBreakdown: breakdown,
+  };
+}
+
+const RUN_STATUSES: readonly EvaluationRunStatus[] = [
+  'idle',
+  'running',
+  'done',
+  'error',
+];
+
+/** Map run-status defensively — trường lạ/null về giá trị an toàn. */
+function toRunStatusInfo(raw: RawEvaluationRunStatus): EvaluationRunStatusInfo {
+  const status = RUN_STATUSES.includes(raw.status as EvaluationRunStatus)
+    ? (raw.status as EvaluationRunStatus)
+    : 'idle';
+  const nullableString = (value: unknown): string | null =>
+    typeof value === 'string' && value !== '' ? value : null;
+  return {
+    status,
+    runId: nullableString(raw.run_id),
+    startedAt: nullableString(raw.started_at),
+    finishedAt: nullableString(raw.finished_at),
+    summary:
+      typeof raw.summary === 'object' && raw.summary !== null
+        ? toSummaryCounts(raw.summary)
+        : null,
+    error: nullableString(raw.error),
+  };
+}
+
+/**
+ * Giữ raw observed khi parse được object — observed từ backend có thể là
+ * object trực tiếp hoặc JSON string. Scalar/mảng → undefined.
+ */
+function toObservedRaw(
+  raw: unknown,
+): Record<string, unknown> | undefined {
+  let candidate = raw;
+  if (typeof candidate === 'string') {
+    const trimmed = candidate.trim();
+    if (!trimmed.startsWith('{') || !trimmed.endsWith('}')) {
+      return undefined;
+    }
+    try {
+      candidate = JSON.parse(trimmed);
+    } catch {
+      return undefined;
+    }
+  }
+  if (
+    typeof candidate === 'object' &&
+    candidate !== null &&
+    !Array.isArray(candidate)
+  ) {
+    return candidate as Record<string, unknown>;
+  }
+  return undefined;
+}
+
 /** Scorecard của 1 subject — snake_case từ backend (§1.11). */
 interface RawEvaluationScorecard {
   schema_version?: unknown;
@@ -458,6 +963,7 @@ function toEvaluationCheck(raw: RawEvaluationCheck, index: number): EvaluationCh
     : 'skipped';
   const id =
     typeof raw.id === 'string' && raw.id !== '' ? raw.id : `check-${index + 1}`;
+  const observedRaw = toObservedRaw(raw.observed);
   return {
     id,
     name:
@@ -470,6 +976,7 @@ function toEvaluationCheck(raw: RawEvaluationCheck, index: number): EvaluationCh
         ? null
         : formatEvaluationValue(raw.threshold),
     observed: formatEvaluationValue(raw.observed),
+    ...(observedRaw !== undefined ? { observedRaw } : {}),
     details: typeof raw.details === 'string' ? raw.details : '',
   };
 }
@@ -646,9 +1153,32 @@ export class LearnGuardApiClient implements ILearnGuardApiClient {
     };
   }
 
-  async getQueueStats(_filters: StudentFilters): Promise<QueueStats> {
-    // TODO(backend): GET /predictions/stats chưa triển khai — mock-stage only.
-    throw new BackendNotImplementedError('predictions/stats');
+  async getQueueStats(filters: StudentFilters): Promise<QueueStats> {
+    // GET /predictions/stats — thống kê hàng đợi (M6). Các đếm theo status
+    // cố tình không respecting filter `status` (backend giữ nguyên 4 số để
+    // render đủ card); chỉ code_module/code_presentation được truyền xuống.
+    const params = new URLSearchParams();
+    if (filters.codeModule !== undefined && filters.codeModule !== '') {
+      params.set('code_module', filters.codeModule);
+    }
+    if (
+      filters.codePresentation !== undefined &&
+      filters.codePresentation !== ''
+    ) {
+      params.set('code_presentation', filters.codePresentation);
+    }
+    const qs = params.toString();
+    const raw = await this.request<RawQueueStats>(
+      `/predictions/stats${qs !== '' ? `?${qs}` : ''}`,
+    );
+    return {
+      flaggedTotal: raw.flagged_total,
+      scored: raw.scored,
+      insufficientData: raw.insufficient_data,
+      manualReview: raw.manual_review,
+      noPrediction: raw.no_prediction,
+      aboveThreshold: raw.above_threshold,
+    };
   }
 
   async listPredictionsForStudent(studentKey: string): Promise<PredictionPage> {
@@ -770,6 +1300,58 @@ export class LearnGuardApiClient implements ILearnGuardApiClient {
       `/evaluations/${encodeURIComponent(runId)}`,
     );
     return toEvaluationDetail(raw);
+  }
+
+  async triggerEvaluationRun(): Promise<EvaluationTriggerResult> {
+    // POST /evaluations/run (FROZEN CONTRACT §1) — 202 {run_id, status}.
+    // Lỗi 409/503 được bọc thành HTTP_409/HTTP_503 qua toApiError.
+    const raw = await this.request<RawEvaluationTrigger>('/evaluations/run', {
+      method: 'POST',
+    });
+    return {
+      runId: typeof raw.run_id === 'string' ? raw.run_id : '',
+      status: typeof raw.status === 'string' ? raw.status : 'started',
+    };
+  }
+
+  async getEvaluationRunStatus(): Promise<EvaluationRunStatusInfo> {
+    // GET /evaluations/run-status (FROZEN CONTRACT §2).
+    const raw = await this.request<RawEvaluationRunStatus>(
+      '/evaluations/run-status',
+    );
+    return toRunStatusInfo(raw);
+  }
+
+  async listAuditLogs(params?: AuditLogQuery): Promise<AuditLogListResult> {
+    // GET /audit-logs?limit=&action=&entity= (§1.12) — backend trả snake_case.
+    // Lỗi 503 database_not_configured → HTTP_503 qua toApiError.
+    const requestParams = new URLSearchParams();
+    if (params?.limit !== undefined) {
+      requestParams.set('limit', String(params.limit));
+    }
+    if (params?.action !== undefined && params.action !== '') {
+      requestParams.set('action', params.action);
+    }
+    if (params?.entity !== undefined && params.entity !== '') {
+      requestParams.set('entity', params.entity);
+    }
+    const query = requestParams.toString();
+    const raw = await this.request<RawAuditLogList>(
+      query !== '' ? `/audit-logs?${query}` : '/audit-logs',
+    );
+    return toAuditLogList(raw, params?.limit ?? 50);
+  }
+
+  async getStudentActivity(ref: PredictionRef): Promise<StudentActivity> {
+    // GET /predictions/{m}/{p}/{s}/activity (§1.13) — hành vi 4 tuần trước
+    // ngày cắt. Lỗi: 404 student_not_found, 503 oulad_data_not_configured
+    // → HTTP_404/HTTP_503 qua toApiError.
+    const path =
+      `/predictions/${encodeURIComponent(ref.codeModule)}` +
+      `/${encodeURIComponent(ref.codePresentation)}` +
+      `/${encodeURIComponent(ref.studentKey)}/activity`;
+    const raw = await this.request<RawStudentActivity>(path);
+    return toStudentActivity(raw);
   }
 
   private async request<T>(

@@ -1,18 +1,24 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 import type { ApiError } from '../contracts/api';
 import type {
   EvaluationCheck,
   EvaluationCheckStatus,
   EvaluationDetail,
+  EvaluationRunStatusInfo,
   EvaluationRunSummary,
   EvaluationScorecard,
 } from '../api/client';
+import { parseJudgeRows } from '../api/client';
 import { apiClient } from '../api';
-import { Button, EmptyState, ErrorState, Spinner } from '../components/ui';
+import { Button, EmptyState, ErrorState } from '../components/ui';
 import styles from './EvaluationsPage.module.css';
 
 const LIST_LIMIT = 20;
+/** Chu kỳ poll GET /evaluations/run-status khi đang chạy (FROZEN CONTRACT). */
+const POLL_INTERVAL_MS = 2_500;
+/** Banner thành công tự ẩn sau 10 giây. */
+const SUCCESS_BANNER_MS = 10_000;
 
 /** Bộ lọc subject (gate) — tabs trong view chi tiết. */
 type SubjectFilter = 'all' | 'data' | 'ml' | 'llm';
@@ -85,6 +91,12 @@ const DATE_FORMATTER = new Intl.DateTimeFormat('vi-VN', {
   timeStyle: 'short',
 });
 
+const TIME_FORMATTER = new Intl.DateTimeFormat('vi-VN', {
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+});
+
 /** ISO-8601 → "06/11/2026, 09:30" (vi-VN); timestamp hỏng → chuỗi gốc. */
 function formatDateTime(iso: string): string {
   if (iso === '') {
@@ -95,6 +107,131 @@ function formatDateTime(iso: string): string {
     return iso;
   }
   return DATE_FORMATTER.format(date);
+}
+
+/** ISO-8601 → "HH:mm:ss"; timestamp hỏng → "—". */
+function formatTime(iso: string | null): string {
+  if (iso === null || iso === '') {
+    return '—';
+  }
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) {
+    return iso;
+  }
+  return TIME_FORMATTER.format(date);
+}
+
+/** Thời điểm hiện tại dạng "HH:mm:ss" — dùng cho dòng "Cập nhật lúc". */
+function nowTimeString(): string {
+  return TIME_FORMATTER.format(new Date());
+}
+
+/** Skeleton shimmer thay spinner — 4 hàng nhấp nháy nhẹ khi tải. */
+function SkeletonRows({ rows = 4 }: { rows?: number }): ReactElement {
+  return (
+    <div className={styles.skeleton} role="status" aria-label="Đang tải dữ liệu…">
+      {Array.from({ length: rows }, (_, index) => (
+        <div
+          key={index}
+          className={styles.skeletonRow}
+          style={{ width: `${100 - index * 7}%` }}
+        />
+      ))}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Bảng điểm judge — check 'judge_quality' (subject llm)               */
+/* ------------------------------------------------------------------ */
+
+/** Class nền của ô Overall: ≥4 xanh, 3–3.9 vàng, <3 đỏ. */
+function judgeScoreClass(overall: number | null): string {
+  if (overall === null) {
+    return styles.judgeScoreNA;
+  }
+  if (overall >= 4) {
+    return styles.judgeScoreHigh;
+  }
+  if (overall >= 3) {
+    return styles.judgeScoreMid;
+  }
+  return styles.judgeScoreLow;
+}
+
+function JudgeTable({ check }: { check: EvaluationCheck }): ReactElement | null {
+  const rows = parseJudgeRows(check.observedRaw?.['per_brief']);
+  if (rows.length === 0) {
+    return null;
+  }
+  const judgeModelRaw = check.observedRaw?.['judge_model'];
+  const judgeModel =
+    typeof judgeModelRaw === 'string' && judgeModelRaw !== ''
+      ? judgeModelRaw
+      : null;
+  const scored = rows.filter((row) => row.overall !== null);
+  const average =
+    scored.length > 0
+      ? scored.reduce((sum, row) => sum + (row.overall ?? 0), 0) / scored.length
+      : null;
+
+  return (
+    <div className={styles.judgeWrap}>
+      <table className={styles.judgeTable}>
+        <caption className="srOnly">
+          Bảng điểm judgeQuality của từng brief
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col">Brief</th>
+            <th scope="col">Grounded</th>
+            <th scope="col">Useful</th>
+            <th scope="col">No-fabrication</th>
+            <th scope="col">Clarity</th>
+            <th scope="col">Overall</th>
+            <th scope="col">Ghi chú</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, index) => (
+            <tr key={`${row.brief}-${index}`}>
+              <td>
+                <span className={styles.judgeBriefId}>{row.brief}</span>
+              </td>
+              <td className={styles.judgeNum}>{row.grounded ?? '—'}</td>
+              <td className={styles.judgeNum}>{row.useful ?? '—'}</td>
+              <td className={styles.judgeNum}>{row.noFabrication ?? '—'}</td>
+              <td className={styles.judgeNum}>{row.clarity ?? '—'}</td>
+              <td>
+                <span className={judgeScoreClass(row.overall)}>
+                  {row.overall ?? '—'}
+                </span>
+              </td>
+              <td>
+                {row.notes !== '' ? (
+                  <span className={styles.judgeNotes}>{row.notes}</span>
+                ) : (
+                  <span className={styles.judgeNA}>—</span>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className={styles.judgeFooter}>
+        Điểm TB:{' '}
+        <strong>{average !== null ? average.toFixed(2) : '—'}</strong>
+        {' · '}
+        Đã chấm: <strong>{scored.length}</strong> brief
+        {judgeModel !== null ? (
+          <>
+            {' · '}
+            Model: <strong>{judgeModel}</strong>
+          </>
+        ) : null}
+      </p>
+    </div>
+  );
 }
 
 /** Dòng đếm tóm tắt — chỉ hiển thị các nhóm khác 0. */
@@ -155,6 +292,10 @@ function ObservedCell({ observed }: { observed: string }): ReactElement {
 }
 
 function CheckRow({ check }: { check: EvaluationCheck }): ReactElement {
+  const isJudgeQuality =
+    check.id === 'judge_quality' &&
+    check.observedRaw !== undefined &&
+    parseJudgeRows(check.observedRaw['per_brief']).length > 0;
   return (
     <tr>
       <td>
@@ -165,7 +306,11 @@ function CheckRow({ check }: { check: EvaluationCheck }): ReactElement {
         <span className={styles.checkId}>{check.id}</span>
       </td>
       <td>
-        <ObservedCell observed={check.observed} />
+        {isJudgeQuality ? (
+          <JudgeTable check={check} />
+        ) : (
+          <ObservedCell observed={check.observed} />
+        )}
       </td>
       <td>
         {check.threshold !== null ? (
@@ -257,6 +402,142 @@ export function EvaluationsPage(): ReactElement {
   const [subjectFilter, setSubjectFilter] = useState<SubjectFilter>('all');
   const [reloadToken, setReloadToken] = useState(0);
 
+  /* ---- Chạy đánh giá thủ công (FROZEN CONTRACT §1–§2) ---- */
+  const [runStatus, setRunStatus] = useState<EvaluationRunStatusInfo | null>(
+    null,
+  );
+  const [triggering, setTriggering] = useState(false);
+  /** Banner "✅ Hoàn tất …" — tự ẩn sau 10s. */
+  const [successNote, setSuccessNote] = useState<string | null>(null);
+  /** "Cập nhật lúc HH:mm:ss" — set sau mỗi lần fetch danh sách thành công. */
+  const [listUpdatedAt, setListUpdatedAt] = useState<string | null>(null);
+  const [detailUpdatedAt, setDetailUpdatedAt] = useState<string | null>(null);
+
+  // Ref giữ trạng thái run gần nhất để phát hiện chuyển tiếp running → done.
+  const runStatusRef = useRef<EvaluationRunStatusInfo | null>(null);
+
+  function applyRunStatus(next: EvaluationRunStatusInfo): void {
+    const previous = runStatusRef.current;
+    runStatusRef.current = next;
+    setRunStatus(next);
+    if (next.status === 'done' && previous?.status === 'running') {
+      // Run vừa hoàn tất → refetch danh sách + banner xanh.
+      setReloadToken((token) => token + 1);
+      const counts = next.summary;
+      const runId = next.runId ?? '(không rõ)';
+      setSuccessNote(
+        counts !== null
+          ? `✅ Hoàn tất — run ${runId}: ${counts.pass} pass · ${counts.warn} warn · ${counts.fail} fail`
+          : `✅ Hoàn tất — run ${runId}`,
+      );
+    }
+  }
+
+  // Lần đầu vào trang (và sau mỗi lần refetch token): đọc trạng thái run
+  // gần nhất — nếu đang running thì tự resume polling.
+  useEffect(() => {
+    let cancelled = false;
+    apiClient
+      .getEvaluationRunStatus()
+      .then((next) => {
+        if (!cancelled) {
+          applyRunStatus(next);
+        }
+      })
+      .catch(() => {
+        // Không có endpoint / backend lỗi → bỏ qua, trang vẫn dùng được.
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Poll mỗi 2.5s trong khi status = 'running'.
+  useEffect(() => {
+    if (runStatus?.status !== 'running') {
+      return;
+    }
+    const interval = setInterval(() => {
+      apiClient
+        .getEvaluationRunStatus()
+        .then((next) => {
+          applyRunStatus(next);
+        })
+        .catch(() => {
+          // Lỗi poll tạm thời — đợi chu kỳ tiếp theo.
+        });
+    }, POLL_INTERVAL_MS);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [runStatus?.status]);
+
+  // Banner thành công tự ẩn sau 10 giây.
+  useEffect(() => {
+    if (successNote === null) {
+      return;
+    }
+    const timer = setTimeout(() => setSuccessNote(null), SUCCESS_BANNER_MS);
+    return () => clearTimeout(timer);
+  }, [successNote]);
+
+  async function handleTriggerRun(): Promise<void> {
+    setTriggering(true);
+    setSuccessNote(null);
+    try {
+      const result = await apiClient.triggerEvaluationRun();
+      applyRunStatus({
+        status: 'running',
+        runId: result.runId,
+        startedAt: new Date().toISOString(),
+        finishedAt: null,
+        summary: null,
+        error: null,
+      });
+    } catch (cause) {
+      const error = toApiError(cause);
+      const message =
+        error.code === 'HTTP_409'
+          ? 'Một lần đánh giá đang chạy — vui lòng đợi run hiện tại hoàn tất.'
+          : error.code === 'HTTP_503'
+            ? 'Chưa cấu hình runner trên backend (ml_runner_not_configured / evaluations_dir_not_configured).'
+            : error.message;
+      applyRunStatus({
+        status: 'error',
+        runId: null,
+        startedAt: null,
+        finishedAt: null,
+        summary: null,
+        error: message,
+      });
+    } finally {
+      setTriggering(false);
+    }
+  }
+
+  /** ⬇ Tải JSON — toàn bộ reports của run hiện tại (Blob + a[download]). */
+  function downloadReport(): void {
+    if (detail === null) {
+      return;
+    }
+    const payload = {
+      run_id: detail.runId,
+      created_at: detail.createdAt,
+      reports: detail.reports,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: 'application/json',
+    });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `${detail.runId !== '' ? detail.runId : 'evaluation'}.json`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  }
+
   // Danh sách các run — refetch khi bấm "Làm mới" (reloadToken).
   useEffect(() => {
     let cancelled = false;
@@ -271,6 +552,7 @@ export function EvaluationsPage(): ReactElement {
         }
         setRuns(result.runs);
         setTotal(result.total);
+        setListUpdatedAt(nowTimeString());
         setListLoading(false);
       })
       .catch((cause: unknown) => {
@@ -304,6 +586,7 @@ export function EvaluationsPage(): ReactElement {
           return;
         }
         setDetail(next);
+        setDetailUpdatedAt(nowTimeString());
         setDetailLoading(false);
       })
       .catch((cause: unknown) => {
@@ -351,6 +634,16 @@ export function EvaluationsPage(): ReactElement {
               </div>
               <div className={styles.refreshButton}>
                 <Button
+                  variant="primary"
+                  loading={triggering}
+                  disabled={runStatus?.status === 'running'}
+                  onClick={() => {
+                    void handleTriggerRun();
+                  }}
+                >
+                  ▶ Chạy đánh giá ngay
+                </Button>
+                <Button
                   variant="secondary"
                   loading={listLoading}
                   onClick={() => setReloadToken((token) => token + 1)}
@@ -361,11 +654,32 @@ export function EvaluationsPage(): ReactElement {
             </div>
           </header>
 
+          {/* Banner trạng thái run thủ công */}
+          {runStatus?.status === 'running' ? (
+            <div className={styles.bannerRunning} role="status">
+              ⏳ Đang chạy đánh giá tự động (bắt đầu{' '}
+              {formatTime(runStatus.startedAt)})…
+            </div>
+          ) : null}
+          {successNote !== null ? (
+            <div className={styles.bannerSuccess} role="status">
+              {successNote}
+            </div>
+          ) : null}
+          {runStatus?.status === 'error' ? (
+            <div className={styles.bannerError} role="alert">
+              <span>❌ {runStatus.error ?? 'Lần chạy đánh giá đã lỗi.'}</span>
+              <Button variant="secondary" onClick={() => {
+                void handleTriggerRun();
+              }}>
+                Thử lại
+              </Button>
+            </div>
+          ) : null}
+
           <div className={styles.card} aria-busy={listLoading}>
             {listLoading ? (
-              <div className={styles.loadingBox}>
-                <Spinner label="Đang tải danh sách đánh giá…" />
-              </div>
+              <SkeletonRows rows={4} />
             ) : listError !== null ? (
               <div className={styles.errorBox}>
                 <ErrorState
@@ -442,6 +756,9 @@ export function EvaluationsPage(): ReactElement {
               Hiển thị {runs.length} trên {total} lần đánh giá gần nhất.
             </p>
           ) : null}
+          {listUpdatedAt !== null ? (
+            <p className={styles.updatedAt}>Cập nhật lúc {listUpdatedAt}</p>
+          ) : null}
         </>
       ) : (
         <>
@@ -481,6 +798,13 @@ export function EvaluationsPage(): ReactElement {
               <div className={styles.refreshButton}>
                 <Button
                   variant="secondary"
+                  disabled={detail === null}
+                  onClick={downloadReport}
+                >
+                  ⬇ Tải JSON
+                </Button>
+                <Button
+                  variant="secondary"
                   loading={detailLoading}
                   onClick={() => setReloadToken((token) => token + 1)}
                 >
@@ -508,9 +832,7 @@ export function EvaluationsPage(): ReactElement {
 
           <div className={styles.card} aria-busy={detailLoading}>
             {detailLoading ? (
-              <div className={styles.loadingBox}>
-                <Spinner label="Đang tải scorecard…" />
-              </div>
+              <SkeletonRows rows={4} />
             ) : detailError !== null ? (
               <div className={styles.errorBox}>
                 <ErrorState
@@ -549,6 +871,9 @@ export function EvaluationsPage(): ReactElement {
               ))
             )}
           </div>
+          {detailUpdatedAt !== null && detailError === null ? (
+            <p className={styles.updatedAt}>Cập nhật lúc {detailUpdatedAt}</p>
+          ) : null}
         </>
       )}
     </div>

@@ -8,7 +8,6 @@ import type {
   StudentFilters,
   StudentPrediction,
 } from '../contracts/api';
-import type { QueueStats } from '../api/client';
 import { apiClient } from '../api';
 import { AdvisorService } from '../features/advisor/advisor-service';
 import {
@@ -18,8 +17,6 @@ import {
   ErrorState,
   RiskBar,
   Select,
-  Spinner,
-  StatCard,
   StatusBadge,
 } from '../components/ui';
 import type { DataTableColumn, SelectOption } from '../components/ui';
@@ -150,7 +147,9 @@ export function AdvisorDashboardPage({
   const [error, setError] = useState<ApiError | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
-  const [stats, setStats] = useState<QueueStats | null>(null);
+
+  /** "Cập nhật lúc HH:mm:ss" — set sau mỗi lần fetch hàng đợi thành công. */
+  const [queueUpdatedAt, setQueueUpdatedAt] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -171,6 +170,13 @@ export function AdvisorDashboardPage({
         setRows(page.items);
         setTotal(page.total);
         setHasMore(offset + page.items.length < page.total);
+        setQueueUpdatedAt(
+          new Intl.DateTimeFormat('vi-VN', {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+          }).format(new Date()),
+        );
         setLoading(false);
       })
       .catch((cause: unknown) => {
@@ -185,30 +191,6 @@ export function AdvisorDashboardPage({
       cancelled = true;
     };
   }, [filters, offset, reloadToken]);
-
-  // Summary strip counts — refetched when filters (or the retry button)
-  // change, independent of pagination. On error the strip hides gracefully.
-  useEffect(() => {
-    let cancelled = false;
-    setStats(null);
-
-    advisorService
-      .getQueueStats(buildApiFilters(filters))
-      .then((next: QueueStats) => {
-        if (!cancelled) {
-          setStats(next);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setStats(null);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [filters, reloadToken]);
 
   function handleFilterChange(patch: Partial<QueueFilters>): void {
     setFilters((previous) => ({ ...previous, ...patch }));
@@ -379,37 +361,17 @@ export function AdvisorDashboardPage({
         />
       </section>
 
-      {stats !== null ? (
-        <section className={styles.summaryStrip} aria-label="Thống kê hàng đợi">
-          <StatCard
-            label="Đang gắn cờ"
-            value={stats.flaggedTotal}
-            note={`${stats.aboveThreshold} vượt ngưỡng 60%`}
-            accent="primary"
-          />
-          <StatCard
-            label="Có điểm nguy cơ"
-            value={stats.scored}
-            accent="scored"
-          />
-          <StatCard
-            label="Thiếu dữ liệu"
-            value={stats.insufficientData}
-            accent="insufficient"
-          />
-          <StatCard
-            label="Cần xem xét thủ công"
-            value={stats.manualReview}
-            accent="manual"
-          />
-        </section>
-      ) : null}
-
       <div className={styles.tableRegion} aria-busy={loading}>
         <div className={styles.tableCard}>
           {loading ? (
-            <div className={styles.loadingBox}>
-              <Spinner label="Đang tải danh sách ưu tiên…" />
+            <div className={styles.skeleton} role="status" aria-label="Đang tải danh sách ưu tiên…">
+              {Array.from({ length: 4 }, (_, index) => (
+                <div
+                  key={index}
+                  className={styles.skeletonRow}
+                  style={{ width: `${100 - index * 7}%` }}
+                />
+              ))}
             </div>
           ) : error !== null ? (
             <div className={styles.errorBox}>
@@ -462,28 +424,8 @@ export function AdvisorDashboardPage({
             </>
           )}
         </div>
-        <p className={styles.cautionNote}>
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 16 16"
-            fill="none"
-            aria-hidden="true"
-            focusable="false"
-          >
-            <path
-              d="M8 2L14.5 13.5H1.5L8 2z"
-              stroke="currentColor"
-              strokeWidth="1.4"
-              strokeLinejoin="round"
-            />
-            <path
-              d="M8 6.5v3M8 11.3v.2"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-            />
-          </svg>
+        <p className={styles.updatedAt}>
+          {queueUpdatedAt !== null ? `Cập nhật lúc ${queueUpdatedAt} · ` : ''}
           Tín hiệu được sắp theo mức đóng góp và thể hiện tương quan, không
           phải quan hệ nhân quả.
         </p>

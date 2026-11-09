@@ -1,7 +1,6 @@
-/* Page-scoped styles for the login screen (S1).
-   Faithful to docs/design/learnguard-redesign.html — "S1 · Đăng nhập" (2026-11):
-   gradient + dot-grid background, brand row with gradient logo mark,
-   inline error state, elevated centered card, dashed demo-hint box. */
+/* Page-scoped styles for the login screen (2026-11 refresh).
+   Two-column layout: left gradient hero panel (brand + value props),
+   right elevated white card with the sign-in form. */
 
 .page {
   position: relative;
@@ -11,34 +10,140 @@
   justify-content: center;
   padding: var(--space-16) var(--space-8);
   background:
-    radial-gradient(900px 480px at 18% -10%, rgb(14 116 144 / 0.16), transparent 60%),
-    radial-gradient(800px 460px at 88% 110%, rgb(30 64 175 / 0.12), transparent 62%),
-    linear-gradient(160deg, #f0f7f9 0%, #f7f9fb 48%, #eef3f9 100%);
+    radial-gradient(900px 480px at 15% -10%, rgb(79 70 229 / 0.14), transparent 60%),
+    radial-gradient(800px 460px at 90% 110%, rgb(124 58 237 / 0.12), transparent 62%),
+    linear-gradient(160deg, #f2f3fd 0%, #f5f7fb 48%, #eef1f9 100%);
   font-family: var(--font-family);
 }
 
-/* Faint teal grid layer, radially masked so it fades out from the card. */
+/* Faint indigo grid layer, radially masked so it fades out from the card. */
 .grid {
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(rgb(14 116 144 / 0.045) 1px, transparent 1px),
-    linear-gradient(90deg, rgb(14 116 144 / 0.045) 1px, transparent 1px);
+    linear-gradient(rgb(79 70 229 / 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(79 70 229 / 0.045) 1px, transparent 1px);
   background-size: 48px 48px;
-  -webkit-mask-image: radial-gradient(720px 520px at 50% 46%, #000 30%, transparent 78%);
-  mask-image: radial-gradient(720px 520px at 50% 46%, #000 30%, transparent 78%);
+  -webkit-mask-image: radial-gradient(760px 560px at 50% 46%, #000 30%, transparent 78%);
+  mask-image: radial-gradient(760px 560px at 50% 46%, #000 30%, transparent 78%);
   pointer-events: none;
 }
 
+/* ---- Two-column layout ---- */
+.layout {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1.05fr 1fr;
+  width: 100%;
+  max-width: 980px;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+
+/* ---- Left: gradient hero panel ---- */
+.hero {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-5);
+  padding: var(--space-10) var(--space-8);
+  background:
+    radial-gradient(560px 320px at 110% -10%, rgb(255 255 255 / 0.14), transparent 60%),
+    var(--accent-gradient);
+  color: #ffffff;
+}
+
+.heroBrand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* White logo mark (star motif), inherited from the topbar mark. */
+.heroMark {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  background-color: #ffffff;
+  -webkit-mask-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cpath d='M12 2.6l2.6 5.9 6.4.6-4.8 4.3 1.4 6.3-5.6-3.3-5.6 3.3 1.4-6.3L3 9.1l6.4-.6L12 2.6z' fill='%23000'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cpath d='M12 2.6l2.6 5.9 6.4.6-4.8 4.3 1.4 6.3-5.6-3.3-5.6 3.3 1.4-6.3L3 9.1l6.4-.6L12 2.6z' fill='%23000'/%3E%3C/svg%3E");
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+}
+
+.heroName {
+  font-size: 22px;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.01em;
+}
+
+.heroName span {
+  color: rgb(255 255 255 / 0.72);
+}
+
+.heroTagline {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.6;
+  color: rgb(255 255 255 / 0.92);
+}
+
+.heroValues {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  font-size: 13.5px;
+  font-weight: var(--font-weight-medium);
+  color: rgb(255 255 255 / 0.94);
+}
+
+.heroValues li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Small check bullet in front of each value line. */
+.heroValues li::before {
+  content: '';
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background-color: rgb(255 255 255 / 0.22);
+  -webkit-mask-image: none;
+  mask-image: none;
+  box-shadow: inset 0 0 0 1.5px rgb(255 255 255 / 0.55);
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4.5 8.2l2.3 2.3 4.7-4.8' fill='none' stroke='white' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 11px 11px;
+}
+
+.heroFoot {
+  margin: 0;
+  padding-top: var(--space-3);
+  border-top: 1px solid rgb(255 255 255 / 0.22);
+  font-size: 12px;
+  color: rgb(255 255 255 / 0.72);
+}
+
+/* ---- Right: form card ---- */
 .card {
   position: relative;
-  width: 100%;
-  max-width: 448px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: var(--space-10) var(--space-8);
   background-color: var(--color-surface);
-  border: 1px solid var(--color-border-soft);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
-  padding: var(--space-10) var(--space-10) var(--space-8);
 }
 
 .header {
@@ -54,7 +159,7 @@
   gap: 14px;
 }
 
-/* "LG" mark: cyan-700 → cyan-900 gradient with a colored elevation shadow. */
+/* "LG" mark: indigo → violet gradient with a colored elevation shadow. */
 .logo {
   display: inline-flex;
   align-items: center;
@@ -63,16 +168,12 @@
   height: 52px;
   flex: none;
   border-radius: 12px;
-  background: linear-gradient(
-    140deg,
-    var(--color-primary) 0%,
-    var(--color-primary-active) 100%
-  );
+  background: var(--accent-gradient);
   color: var(--color-on-primary);
   font-weight: var(--font-weight-bold);
   font-size: 20px;
   letter-spacing: 0.02em;
-  box-shadow: 0 4px 12px rgb(14 116 144 / 0.35);
+  box-shadow: var(--accent-glow);
 }
 
 .title {
@@ -84,7 +185,10 @@
 }
 
 .titleAccent {
-  color: var(--color-primary);
+  background: var(--accent-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 .tagline {
@@ -94,7 +198,7 @@
   line-height: 1.55;
 }
 
-/* Submit-level error banner: light-red filled background + inline icon. */
+/* Submit-level error banner: soft red fill + left accent bar + icon. */
 .formError {
   display: flex;
   align-items: center;
@@ -102,6 +206,7 @@
   margin: 0 0 var(--space-4);
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--status-no-prediction-soft-border);
+  border-left: 4px solid var(--status-danger);
   border-radius: var(--radius-sm);
   background-color: var(--color-error-bg);
   color: var(--color-error);
@@ -145,7 +250,7 @@
   padding: var(--space-3) 14px;
   border: 1.5px dashed var(--color-border-strong);
   border-radius: var(--radius-sm);
-  background-color: #f8fafc;
+  background-color: var(--color-bg-subtle);
 }
 
 .demoTitle {
@@ -157,7 +262,7 @@
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--color-text-faint);
+  color: var(--color-text-muted);
 }
 
 .demoTitle svg {
@@ -205,13 +310,30 @@
   white-space: nowrap;
 }
 
-/* Compact card padding on small screens. */
-@media (max-width: 480px) {
+/* Dòng chú thích phân vai dưới danh sách tài khoản demo. */
+.demoHint {
+  margin: var(--space-2) 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-text-muted);
+}
+
+/* Stack hero above the form on narrow screens. */
+@media (max-width: 860px) {
   .page {
     padding: var(--space-6) var(--space-4);
   }
 
+  .layout {
+    grid-template-columns: 1fr;
+    max-width: 480px;
+  }
+
+  .hero {
+    display: none;
+  }
+
   .card {
-    padding: var(--space-6) var(--space-5);
+    padding: var(--space-8) var(--space-6);
   }
 }

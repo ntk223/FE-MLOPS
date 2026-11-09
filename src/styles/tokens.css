@@ -1,72 +1,91 @@
 /**
- * LearnGuard design tokens.
+ * LearnGuard design tokens — "MLOps console" light theme (2026-11 refresh).
  * Single source of truth for colors, spacing, radius, shadows, and typography.
  * All color pairs below are chosen for WCAG AA contrast on their backgrounds.
  */
 :root {
-  /* ---- Brand palette (professional blue/teal) ---- */
-  --color-primary: #0e7490; /* cyan-700 */
-  --color-primary-hover: #155e75; /* cyan-800 */
-  --color-primary-active: #164e63; /* cyan-900 */
-  --color-primary-soft: #ecfeff; /* cyan-50 */
+  /* ---- Brand accent (indigo → violet gradient) ---- */
+  --color-primary: #4f46e5; /* indigo-600 */
+  --color-primary-hover: #4338ca; /* indigo-700 */
+  --color-primary-active: #3730a3; /* indigo-800 */
+  --color-primary-soft: #eef2ff; /* indigo-50 — 10% tint fills */
+  --color-primary-soft-alpha: rgb(79 70 229 / 0.1); /* active-nav pill */
   --color-on-primary: #ffffff;
+
+  --accent-gradient: linear-gradient(120deg, #4f46e5 0%, #7c3aed 100%);
+  --accent-gradient-hover: linear-gradient(120deg, #4338ca 0%, #6d28d9 100%);
+  --accent-glow: 0 4px 14px rgb(79 70 229 / 0.25);
 
   --color-secondary: #1e293b; /* slate-800 */
   --color-secondary-hover: #334155;
-  --color-danger: #b91c1c; /* red-700 */
-  --color-danger-hover: #991b1b;
+  --color-danger: #dc2626; /* red-600 */
+  --color-danger-hover: #b91c1c;
   --color-ghost: transparent;
 
   /* ---- Neutrals ---- */
-  --color-bg: #f7f9fb; /* neutral page background (redesign) */
-  --color-bg-subtle: #fbfcfe; /* table head / footer tint */
+  --color-bg: #f5f7fb; /* neutral page background */
+  --color-bg-subtle: #f8fafc; /* table head / footer tint */
   --color-bg-muted: #f1f5f9; /* hover fills on light chrome */
-  --color-row-hover: #f6f9fb; /* table row hover highlight */
+  --color-row-hover: #f8fafc; /* table row hover highlight */
   --color-surface: #ffffff;
-  --color-border: #e2e8f0; /* slate-200 — light table/card hairlines */
-  --color-border-soft: #eef2f6; /* card edges, sidebar/topbar seams */
+  --color-border: #e2e8f0; /* slate-200 — table/card hairlines */
+  --color-border-soft: #eef2f7; /* card edges, table row seams */
   --color-border-strong: #cbd5e1; /* slate-300 — input + control borders */
   --color-text: #0f172a; /* slate-900 */
   --color-text-secondary: #334155; /* slate-700 */
-  --color-text-muted: #475569; /* slate-600 */
-  --color-text-faint: #64748b; /* slate-500 — labels, table headers */
+  --color-text-muted: #64748b; /* slate-500 — secondary copy */
+  --color-text-faint: #64748b; /* labels, table headers */
   --color-text-placeholder: #94a3b8; /* slate-400 */
   --color-text-disabled: #a3adb9; /* muted disabled nav items */
 
-  /* ---- Semantic status colors (4 PredictionStatus values) ---- */
-  /* scored — amber/warning: #92400E on #FEF3C7 (contrast ~7.9:1) */
-  --status-scored-bg: #fef3c7;
-  --status-scored-border: #d97706;
-  --status-scored-text: #92400e;
-  /* insufficient_data — gray: #374151 on #F3F4F6 (contrast ~9.1:1) */
-  --status-insufficient-bg: #f3f4f6;
-  --status-insufficient-border: #9ca3af;
-  --status-insufficient-text: #374151;
-  /* manual_review — purple: #5B21B6 on #EDE9FE (contrast ~8.2:1) */
-  --status-manual-bg: #ede9fe;
-  --status-manual-border: #7c3aed;
-  --status-manual-text: #5b21b6;
-  /* no_prediction — red: #991B1B on #FEE2E2 (contrast ~8.5:1) */
-  --status-no-prediction-bg: #fee2e2;
-  --status-no-prediction-border: #dc2626;
-  --status-no-prediction-text: #991b1b;
-  /* Softer pill borders used by badges (redesign §badges) */
-  --status-scored-soft-border: #fcd34d;
-  --status-insufficient-soft-border: #d1d5db;
-  --status-manual-soft-border: #c4b5fd;
-  --status-no-prediction-soft-border: #fca5a5;
+  /* ---- Semantic status palette (soft 10–12% fills + bold dark text) ---- */
+  --status-success: #059669;
+  --status-success-text: #047857;
+  --status-success-bg: rgb(5 150 105 / 0.1);
+  --status-warn: #d97706;
+  --status-warn-text: #b45309;
+  --status-warn-bg: rgb(217 119 6 / 0.12);
+  --status-danger: #dc2626;
+  --status-danger-text: #b91c1c;
+  --status-danger-bg: rgb(220 38 38 / 0.1);
+  --status-neutral: #64748b;
+  --status-neutral-text: #475569;
+  --status-neutral-bg: rgb(100 116 139 / 0.12);
+
+  /* ---- PredictionStatus badge colors (4 statuses) ---- */
+  /* scored — amber/warning: #92400E on soft amber */
+  --status-scored-bg: rgb(217 119 6 / 0.12);
+  --status-scored-border: rgb(217 119 6 / 0.28);
+  --status-scored-text: #b45309;
+  /* insufficient_data — gray */
+  --status-insufficient-bg: rgb(100 116 139 / 0.12);
+  --status-insufficient-border: rgb(100 116 139 / 0.26);
+  --status-insufficient-text: #475569;
+  /* manual_review — violet */
+  --status-manual-bg: rgb(124 58 237 / 0.1);
+  --status-manual-border: rgb(124 58 237 / 0.28);
+  --status-manual-text: #6d28d9;
+  /* no_prediction — red */
+  --status-no-prediction-bg: rgb(220 38 38 / 0.1);
+  --status-no-prediction-border: rgb(220 38 38 / 0.28);
+  --status-no-prediction-text: #b91c1c;
+  /* Softer pill borders used by badges */
+  --status-scored-soft-border: rgb(217 119 6 / 0.28);
+  --status-insufficient-soft-border: rgb(100 116 139 / 0.26);
+  --status-manual-soft-border: rgb(124 58 237 / 0.28);
+  --status-no-prediction-soft-border: rgb(220 38 38 / 0.28);
 
   /* ---- Stat-card accent per semantic status (3px top border) ---- */
-  --stat-accent-total: #0e7490; /* primary cyan */
+  --stat-accent-total: #4f46e5; /* accent indigo */
   --stat-accent-scored: #f59e0b; /* amber-500 */
-  --stat-accent-insufficient: #9ca3af; /* gray-400 */
+  --stat-accent-insufficient: #94a3b8; /* gray-400 */
   --stat-accent-manual: #7c3aed; /* violet-600 */
   --stat-accent-no-prediction: #dc2626; /* red-600 */
 
-  /* ---- Risk-bar scale (teal → amber → red by proximity to threshold) ---- */
+  /* ---- Risk-bar scale (indigo → amber → red by proximity to threshold) ---- */
   --risk-track: #e8edf2;
-  --risk-teal-from: #0e7490;
-  --risk-teal-to: #0891b2;
+  --risk-teal-from: #4f46e5;
+  --risk-teal-to: #7c3aed;
   --risk-amber-from: #b45309;
   --risk-amber-to: #d97706;
   --risk-red-from: #b91c1c;
@@ -75,9 +94,9 @@
   --risk-marker-text: #b91c1c;
 
   /* ---- Feedback ---- */
-  --color-error: #b91c1c;
-  --color-error-bg: #fef2f2;
-  --color-success: #15803d;
+  --color-error: #dc2626;
+  --color-error-bg: rgb(220 38 38 / 0.08);
+  --color-success: #059669;
 
   /* ---- Spacing scale (4px base) ---- */
   --space-1: 4px;
@@ -91,20 +110,23 @@
   --space-12: 48px;
   --space-16: 64px;
 
-  /* ---- Radius (redesign: 8–12px) ---- */
-  --radius-sm: 8px;
+  /* ---- Radius ---- */
+  --radius-sm: 8px; /* controls */
   --radius-md: 10px;
-  --radius-lg: 12px;
+  --radius-lg: 12px; /* cards */
   --radius-full: 9999px;
 
   /* ---- Shadow (two-tier, slate-based) ---- */
-  --shadow-sm: 0 1px 2px 0 rgb(15 23 42 / 0.06);
-  --shadow-md: 0 2px 8px 0 rgb(15 23 42 / 0.1);
-  --shadow-lg: 0 8px 24px 0 rgb(15 23 42 / 0.14);
+  --shadow-sm: 0 1px 2px rgb(15 23 42 / 0.06); /* controls */
+  --shadow-card: 0 1px 3px rgb(15 23 42 / 0.08), 0 4px 12px rgb(15 23 42 / 0.04);
+  --shadow-md: 0 1px 3px rgb(15 23 42 / 0.08), 0 4px 12px rgb(15 23 42 / 0.04);
+  --shadow-lg: 0 8px 28px rgb(15 23 42 / 0.14);
 
   /* ---- Typography ---- */
   --font-family: 'Inter', 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial,
     'Noto Sans', system-ui, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', 'Roboto Mono',
+    Menlo, Consolas, monospace;
   --font-size-xs: 0.75rem;
   --font-size-sm: 0.8125rem;
   --font-size-base: 0.9375rem;
@@ -118,8 +140,10 @@
   --line-height: 1.5;
 
   /* ---- Layout ---- */
-  --sidebar-width: 248px;
-  --topbar-height: 60px;
-  --focus-ring: 0 0 0 3px rgb(14 116 144 / 0.35);
+  --container-width: 1180px;
+  --sidebar-width: 240px;
+  --focus-ring: 0 0 0 3px rgb(79 70 229 / 0.4);
+  --focus-ring-inset: inset 0 0 0 2px rgb(79 70 229 / 0.4);
   --ease: cubic-bezier(0.23, 1, 0.32, 1);
+  --transition-ui: 160ms ease-out;
 }

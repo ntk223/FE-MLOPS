@@ -15,10 +15,11 @@
   line-height: 1;
   min-height: 40px;
   transition:
-    background-color 200ms var(--ease),
-    border-color 200ms var(--ease),
-    box-shadow 200ms var(--ease),
-    color 200ms var(--ease);
+    background-color var(--transition-ui) var(--ease),
+    border-color var(--transition-ui) var(--ease),
+    box-shadow var(--transition-ui) var(--ease),
+    color var(--transition-ui) var(--ease),
+    transform var(--transition-ui) var(--ease);
 }
 
 .button:focus-visible {
@@ -27,39 +28,44 @@
 }
 
 .button:disabled {
-  opacity: 0.45;
+  opacity: 0.55;
   cursor: not-allowed;
 }
 
+/* Primary = accent gradient, subtle lift + indigo glow on hover. */
 .buttonPrimary {
-  background-color: var(--color-primary);
+  background: var(--accent-gradient);
   color: var(--color-on-primary);
-  border-color: var(--color-primary);
+  border-color: transparent;
 }
 
 .buttonPrimary:hover:not(:disabled) {
-  background-color: var(--color-primary-hover);
-  box-shadow: var(--shadow-md);
+  background: var(--accent-gradient-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--accent-glow);
 }
 
 .buttonPrimary:active:not(:disabled) {
-  background-color: var(--color-primary-active);
+  transform: translateY(0);
+  background: var(--accent-gradient-hover);
 }
 
-/* Secondary = mockup "btn-ghost": quiet outline action. */
+/* Secondary = quiet white surface + border action. */
 .buttonSecondary {
-  background-color: transparent;
-  color: var(--color-text-muted);
+  background-color: var(--color-surface);
+  color: var(--color-text-secondary);
   border-color: var(--color-border-strong);
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--font-weight-semibold);
   font-size: var(--font-size-sm);
   padding: 9px 14px;
   min-height: 36px;
+  box-shadow: var(--shadow-sm);
 }
 
 .buttonSecondary:hover:not(:disabled) {
   background-color: var(--color-bg-muted);
   color: var(--color-text);
+  transform: translateY(-1px);
 }
 
 .buttonDanger {
@@ -86,16 +92,17 @@
   background-color: var(--color-primary-soft);
 }
 
-/* Compact row-level action (mockup "btn-row", e.g. "Xem hồ sơ"). */
+/* Compact row-level action (e.g. "Xem hồ sơ"). */
 .buttonRow {
   background-color: var(--color-surface);
   color: var(--color-primary);
-  border: 1px solid #a5d8e2;
+  border: 1px solid rgb(79 70 229 / 0.28);
   border-radius: var(--radius-sm);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   padding: 8px 14px;
   min-height: 34px;
+  box-shadow: var(--shadow-sm);
 }
 
 .buttonRow:hover:not(:disabled) {
@@ -210,6 +217,16 @@
   white-space: nowrap;
 }
 
+/* Status badges carry a 6px round dot for instant scanning. */
+.badge::before {
+  content: '';
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: currentColor;
+}
+
 .badgeNeutral {
   background-color: var(--color-bg);
   border-color: var(--color-border);
@@ -218,8 +235,15 @@
 
 .badgePrimary {
   background-color: var(--color-primary-soft);
-  border-color: #a5d8e2;
+  border-color: rgb(79 70 229 / 0.28);
   color: var(--color-primary-hover);
+}
+
+/* Success-soft — role badge "Quản trị" và các nhánh xanh lá khác. */
+.badgeSuccess {
+  background-color: var(--status-success-bg);
+  border-color: rgb(5 150 105 / 0.28);
+  color: var(--status-success-text);
 }
 
 .badgeScored {
@@ -249,10 +273,10 @@
 /* ---- Card ---- */
 .card {
   background-color: var(--color-surface);
-  border: 1px solid var(--color-border-soft);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
-  padding: var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: var(--space-6);
 }
 
 /* ---- DataTable ---- */
@@ -269,11 +293,11 @@
 
 .table th {
   text-align: left;
-  padding: 11px 14px;
+  padding: 10px 14px;
   background-color: var(--color-bg-subtle);
   color: var(--color-text-faint);
-  font-size: 11.5px;
-  font-weight: var(--font-weight-bold);
+  font-size: 12px;
+  font-weight: var(--font-weight-semibold);
   letter-spacing: 0.05em;
   text-transform: uppercase;
   border-bottom: 1px solid var(--color-border);
@@ -281,15 +305,17 @@
 }
 
 .table td {
-  padding: 14px;
+  padding: 12px 14px;
   border-bottom: 1px solid var(--color-border-soft);
   color: var(--color-text-secondary);
   vertical-align: middle;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
 }
 
-/* No zebra — hover-only highlight, ~50px row height. */
+/* No zebra — hover-only highlight. */
 .table tbody tr {
-  transition: background-color 200ms var(--ease);
+  transition: background-color var(--transition-ui) var(--ease);
 }
 
 .table tbody tr:hover {
@@ -398,11 +424,16 @@
   flex-direction: column;
   gap: 3px;
   background-color: var(--color-surface);
-  border: 1px solid var(--color-border-soft);
+  border: 1px solid var(--color-border);
   border-top: 3px solid transparent;
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
   padding: 14px 16px;
+  transition: box-shadow var(--transition-ui) var(--ease), transform var(--transition-ui) var(--ease);
+}
+
+.statCard:hover {
+  transform: translateY(-1px);
 }
 
 .statCardLabel {
@@ -476,6 +507,22 @@
   text-align: center;
 }
 
+/* Large faint inline-SVG icon (empty inbox motif) above the title. */
+.placeholder::before {
+  content: '';
+  width: 44px;
+  height: 44px;
+  margin-bottom: var(--space-1);
+  background-color: var(--color-text-placeholder);
+  opacity: 0.55;
+  -webkit-mask-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cpath d='M3 13h4l2 3h6l2-3h4' stroke='%23000' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M5 5h14l2 8v5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18v-5l2-8z' stroke='%23000' stroke-width='1.6' stroke-linejoin='round'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cpath d='M3 13h4l2 3h6l2-3h4' stroke='%23000' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M5 5h14l2 8v5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18v-5l2-8z' stroke='%23000' stroke-width='1.6' stroke-linejoin='round'/%3E%3C/svg%3E");
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+}
+
 .placeholderTitle {
   font-size: var(--font-size-lg);
   font-weight: var(--font-weight-semibold);
@@ -508,7 +555,7 @@
 .spinner {
   width: 20px;
   height: 20px;
-  border: 2px solid rgb(14 116 144 / 0.25);
+  border: 2px solid rgb(79 70 229 / 0.25);
   border-top-color: var(--color-primary);
   border-radius: 50%;
   animation: spin 700ms linear infinite;
@@ -532,158 +579,4 @@
 }
 
 /* ---- AppShell layout ----
-   Light sidebar per redesign S2: white surface, soft seam,
-   active item = soft cyan pill with inset left accent. */
-.shell {
-  display: flex;
-  min-height: 100vh;
-  background-color: var(--color-bg);
-}
-
-.sidebar {
-  width: var(--sidebar-width);
-  flex-shrink: 0;
-  background-color: var(--color-surface);
-  color: var(--color-text-secondary);
-  border-right: 1px solid var(--color-border-soft);
-  display: flex;
-  flex-direction: column;
-  position: sticky;
-  top: 0;
-  height: 100vh;
-}
-
-.logo {
-  display: block;
-  padding: var(--space-5);
-  font-size: 16px;
-  font-weight: var(--font-weight-bold);
-  letter-spacing: -0.01em;
-  color: var(--color-text);
-  text-decoration: none;
-  border-bottom: 1px solid var(--color-border-soft);
-}
-
-.logoAccent {
-  color: var(--color-primary);
-}
-
-.nav {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: var(--space-4) var(--space-3);
-  flex: 1;
-}
-
-.navLink {
-  display: flex;
-  align-items: center;
-  padding: 9px 12px;
-  border-radius: var(--radius-sm);
-  color: var(--color-text-secondary);
-  text-decoration: none;
-  font-size: var(--font-size-base);
-  font-weight: var(--font-weight-medium);
-  transition:
-    background-color 200ms var(--ease),
-    color 200ms var(--ease);
-}
-
-.navLink:hover {
-  background-color: var(--color-bg-muted);
-  color: var(--color-text);
-}
-
-.navLink:focus-visible {
-  outline: none;
-  box-shadow: var(--focus-ring);
-}
-
-.navLinkActive {
-  background-color: var(--color-primary-soft);
-  color: var(--color-primary-hover);
-  font-weight: var(--font-weight-semibold);
-  box-shadow: inset 3px 0 0 var(--color-primary);
-}
-
-.navItemDisabled {
-  display: flex;
-  align-items: center;
-  padding: 9px 12px;
-  border-radius: var(--radius-sm);
-  color: var(--color-text-disabled);
-  font-size: var(--font-size-base);
-  font-weight: var(--font-weight-medium);
-  cursor: not-allowed;
-}
-
-.main {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.topbar {
-  height: var(--topbar-height);
-  background-color: var(--color-surface);
-  border-bottom: 1px solid var(--color-border-soft);
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--space-4);
-  padding: 0 var(--space-6);
-  position: sticky;
-  top: 0;
-  z-index: 10;
-}
-
-.userInfo {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.userName {
-  font-size: 13.5px;
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text);
-  line-height: 1.2;
-}
-
-.content {
-  flex: 1;
-  padding: 28px 32px 32px;
-  max-width: 1280px;
-  width: 100%;
-  margin: 0 auto;
-}
-
-/* Sidebar collapses to a horizontal bar under 768px (CSS only). */
-@media (max-width: 768px) {
-  .shell {
-    flex-direction: column;
-  }
-
-  .sidebar {
-    width: 100%;
-    height: auto;
-    position: static;
-  }
-
-  .nav {
-    flex-direction: row;
-    flex-wrap: wrap;
-    padding: var(--space-2) var(--space-3);
-  }
-
-  .topbar {
-    justify-content: space-between;
-    padding: 0 var(--space-4);
-  }
-
-  .content {
-    padding: var(--space-4);
-  }
-}
+   Moved to src/components/layout/AppShell.module.css (topbar console layout). */

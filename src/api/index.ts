@@ -35,10 +35,18 @@ export function createApiClient(): ILearnGuardApiClient {
       real.saveBriefDecision(briefId, decision),
     listEvaluations: (limit) => real.listEvaluations(limit),
     getEvaluation: (runId) => real.getEvaluation(runId),
+    // FROZEN CONTRACT §1–§2 — chạy đánh giá thủ công + poll trạng thái.
+    triggerEvaluationRun: () => real.triggerEvaluationRun(),
+    getEvaluationRunStatus: () => real.getEvaluationRunStatus(),
+    // GET /audit-logs (§1.12).
+    listAuditLogs: (params) => real.listAuditLogs(params),
+    // GET /predictions/stats — thống kê hàng đợi cho trang Tổng quan.
+    getQueueStats: (filters) => real.getQueueStats(filters),
+    // GET /predictions/{m}/{p}/{s}/activity (§1.13) — backend đang code song song.
+    getStudentActivity: (ref) => real.getStudentActivity(ref),
 
-    // Mock — chờ backend M6 (auth) và stats endpoint.
+    // Mock — chờ backend M6 (auth).
     login: (credentials) => mock.login(credentials),
-    getQueueStats: (filters) => mock.getQueueStats(filters),
   };
   return hybrid;
 }

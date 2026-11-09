@@ -1,0 +1,478 @@
+/* Page-scoped styles for the admin overview dashboard — /overview.
+   Follows the visual language of AuditPage.module.css / EvaluationsPage.module.css. */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* ---- Header: title + subtitle + "Cập nhật lúc" + nút Làm mới ---- */
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-bottom: var(--space-2);
+}
+
+.headerRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.01em;
+  color: var(--color-text);
+}
+
+.subtitle {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--color-text-muted);
+}
+
+.refreshButton {
+  flex: none;
+  margin-top: var(--space-1);
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.updatedAt {
+  margin: 2px 0 0;
+  font-size: 11.5px;
+  color: var(--color-text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Hàng 1: 4 StatCard ---- */
+.statGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+/* ---- Hàng 2: bar chart (rộng) + đánh giá gần nhất (hẹp) ---- */
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: stretch;
+}
+
+/* ---- Card chung ---- */
+.card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: var(--space-5) var(--space-6);
+  min-width: 0;
+}
+
+/* Section label — uppercase theo tokens. */
+.cardTitle {
+  margin: 0;
+  font-size: 12px;
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-faint);
+}
+
+.cardHint {
+  margin: 4px 0 0;
+  font-size: 12.5px;
+  color: var(--color-text-muted);
+}
+
+.cardHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.cardLink {
+  font-size: 13px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-primary);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.cardLink:hover {
+  text-decoration: underline;
+}
+
+.cardEmpty {
+  margin: var(--space-4) 0 0;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+/* ---- Bar chart "Rủi ro theo học phần" ---- */
+.barList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.barRow {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) 64px;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.barModule {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 13px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+}
+
+.barTrack {
+  height: 14px;
+  border-radius: var(--radius-full);
+  background-color: var(--risk-track);
+  overflow: hidden;
+}
+
+/* Gradient indigo → violet, animate width 300ms sau khi có dữ liệu. */
+.barFill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  background-image: var(--accent-gradient);
+  transition: width 300ms var(--ease);
+}
+
+.barCount {
+  font-size: 12.5px;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* ---- Card "Đánh giá gần nhất" ---- */
+.evalBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+.evalHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.evalRunId {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 13px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+  word-break: break-all;
+}
+
+.evalTime {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.evalChips {
+  display: inline-flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin: 2px 0 0;
+}
+
+/* Chips pass/warn/fail — cùng ngôn ngữ với summaryChip EvaluationsPage. */
+.evalChips > span {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 9px;
+  border-radius: var(--radius-full);
+  font-size: 11.5px;
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+.chipPass {
+  color: var(--status-success-text);
+  background-color: var(--status-success-bg);
+  border: 1px solid rgb(5 150 105 / 0.28);
+}
+
+.chipWarn {
+  color: var(--status-warn-text);
+  background-color: var(--status-warn-bg);
+  border: 1px solid rgb(217 119 6 / 0.3);
+}
+
+.chipFail {
+  color: var(--status-danger-text);
+  background-color: var(--status-danger-bg);
+  border: 1px solid rgb(220 38 38 / 0.28);
+}
+
+/* ---- Card "Hoạt động gần đây" ---- */
+/* ---- Ưu tiên chú ý ngay (variant cố vấn) ---- */
+.riskList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.riskRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 10px 0;
+  border-bottom: 1px solid var(--color-border-soft);
+}
+
+.riskRow:last-child {
+  border-bottom: none;
+}
+
+.riskRank {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--accent-gradient);
+  color: var(--color-on-primary);
+  font-size: 12px;
+  font-weight: var(--font-weight-bold);
+}
+
+.riskKey {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 13px;
+  color: var(--color-text);
+}
+
+.riskModule {
+  font-size: 12.5px;
+  color: var(--color-text-muted);
+}
+
+.riskScore {
+  margin-left: auto;
+  font-size: 14px;
+  font-weight: var(--font-weight-bold);
+  color: var(--status-danger-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.activityList {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+}
+
+.activityRow {
+  display: grid;
+  grid-template-columns: 52px minmax(0, auto) minmax(0, 1fr) minmax(0, auto);
+  align-items: center;
+  gap: var(--space-3);
+  padding: 10px 0;
+  border-bottom: 1px solid var(--color-border-soft);
+  font-size: 13px;
+}
+
+.activityRow:last-child {
+  border-bottom: none;
+}
+
+.activityTime {
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.activityBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  border: 1px solid transparent;
+  font-size: 11.5px;
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+}
+
+/* 6px round dot — cùng pattern với ActionBadge của AuditPage. */
+.activityBadge::before {
+  content: '';
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: currentColor;
+}
+
+.toneIndigo {
+  color: var(--color-primary-hover);
+  background-color: var(--color-primary-soft);
+  border-color: rgb(79 70 229 / 0.28);
+}
+
+.toneSuccess {
+  color: var(--status-success-text);
+  background-color: var(--status-success-bg);
+  border-color: rgb(5 150 105 / 0.28);
+}
+
+.toneWarn {
+  color: var(--status-warn-text);
+  background-color: var(--status-warn-bg);
+  border-color: rgb(217 119 6 / 0.3);
+}
+
+.toneDanger {
+  color: var(--status-danger-text);
+  background-color: var(--status-danger-bg);
+  border-color: rgb(220 38 38 / 0.28);
+}
+
+.toneNeutral {
+  color: var(--status-neutral-text);
+  background-color: var(--status-neutral-bg);
+  border-color: var(--color-border-soft);
+}
+
+.activityEntity {
+  color: var(--color-text-secondary);
+  font-size: 12.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.activityEntity code {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.activityActor {
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+
+/* ---- Skeleton shimmer (pattern AuditPage) ---- */
+.statSkeleton {
+  height: 112px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(
+    90deg,
+    #e8ecf3 25%,
+    #f7f9fc 50%,
+    #e8ecf3 75%
+  );
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.4s ease-in-out infinite;
+}
+
+.skeletonRow {
+  height: 18px;
+  border-radius: 6px;
+  background: linear-gradient(
+    90deg,
+    #e8ecf3 25%,
+    #f7f9fc 50%,
+    #e8ecf3 75%
+  );
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.4s ease-in-out infinite;
+}
+
+.skeletonRow + .skeletonRow {
+  margin-top: 16px;
+}
+
+.card > .skeletonRow:first-child {
+  margin-top: 0;
+}
+
+@keyframes skeletonShimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeletonRow,
+  .statSkeleton {
+    animation: none;
+  }
+
+  .barFill {
+    transition: none;
+  }
+}
+
+/* ---- Error state ---- */
+.errorBox {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-2);
+}
+
+.errorActions {
+  display: flex;
+  justify-content: center;
+}
+
+/* ---- Responsive ---- */
+@media (max-width: 1000px) {
+  .statGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 560px) {
+  .statGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .activityRow {
+    grid-template-columns: 52px minmax(0, 1fr);
+    grid-auto-rows: auto;
+    row-gap: var(--space-1);
+  }
+
+  .activityEntity,
+  .activityActor {
+    grid-column: 2;
+    white-space: normal;
+  }
+}

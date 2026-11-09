@@ -39,14 +39,248 @@
 .refreshButton {
   flex: none;
   margin-top: var(--space-1);
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+/* ---- Banner trạng thái run đánh giá thủ công ----
+   Soft status fill + 4px left accent bar + inline icon. */
+.bannerRunning,
+.bannerSuccess,
+.bannerError {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid;
+  border-left-width: 4px;
+  font-size: 13px;
+  font-weight: var(--font-weight-medium);
+}
+
+.bannerRunning::before,
+.bannerSuccess::before,
+.bannerError::before {
+  content: '';
+  flex: none;
+  width: 14px;
+  height: 14px;
+  background-color: currentColor;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+}
+
+.bannerRunning {
+  border-color: rgb(79 70 229 / 0.28);
+  border-left-color: var(--color-primary);
+  background-color: var(--color-primary-soft-alpha);
+  color: var(--color-primary-hover);
+}
+
+.bannerRunning::before {
+  -webkit-mask-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'%3E%3Ccircle cx='8' cy='8' r='6.5' stroke='%23000' stroke-width='1.5'/%3E%3Cpath d='M8 4.8V8l2.2 1.6' stroke='%23000' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'%3E%3Ccircle cx='8' cy='8' r='6.5' stroke='%23000' stroke-width='1.5'/%3E%3Cpath d='M8 4.8V8l2.2 1.6' stroke='%23000' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+.bannerSuccess {
+  border-color: rgb(5 150 105 / 0.28);
+  border-left-color: var(--status-success);
+  background-color: var(--status-success-bg);
+  color: var(--status-success-text);
+}
+
+.bannerSuccess::before {
+  -webkit-mask-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'%3E%3Ccircle cx='8' cy='8' r='6.5' stroke='%23000' stroke-width='1.5'/%3E%3Cpath d='M5.2 8.2l2 2 3.6-3.8' stroke='%23000' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'%3E%3Ccircle cx='8' cy='8' r='6.5' stroke='%23000' stroke-width='1.5'/%3E%3Cpath d='M5.2 8.2l2 2 3.6-3.8' stroke='%23000' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+.bannerError {
+  justify-content: space-between;
+  border-color: rgb(220 38 38 / 0.28);
+  border-left-color: var(--status-danger);
+  background-color: var(--status-danger-bg);
+  color: var(--status-danger-text);
+}
+
+.bannerError::before {
+  -webkit-mask-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'%3E%3Ccircle cx='8' cy='8' r='6.5' stroke='%23000' stroke-width='1.5'/%3E%3Cpath d='M8 5v3.5M8 10.8v.2' stroke='%23000' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'%3E%3Ccircle cx='8' cy='8' r='6.5' stroke='%23000' stroke-width='1.5'/%3E%3Cpath d='M8 5v3.5M8 10.8v.2' stroke='%23000' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+/* ---- Dòng "Cập nhật lúc HH:mm:ss" ---- */
+.updatedAt {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--color-text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Skeleton shimmer (thay spinner) ---- */
+.skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: var(--space-6);
+}
+
+.skeletonRow {
+  height: 18px;
+  border-radius: 6px;
+  background: linear-gradient(
+    90deg,
+    #e8ecf3 25%,
+    #f7f9fc 50%,
+    #e8ecf3 75%
+  );
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes skeletonShimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeletonRow {
+    animation: none;
+  }
+}
+
+/* ---- Bảng điểm judge (check judge_quality) ---- */
+.judgeWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.judgeTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-sm);
+}
+
+.judgeTable th {
+  text-align: left;
+  font-size: 11.5px;
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-faint);
+  background-color: var(--color-bg-subtle);
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+
+.judgeTable td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--color-border-soft);
+  vertical-align: top;
+  font-variant-numeric: tabular-nums;
+}
+
+.judgeTable tbody tr {
+  transition: background-color var(--transition-ui) var(--ease);
+}
+
+.judgeTable tbody tr:hover {
+  background-color: var(--color-row-hover);
+}
+
+.judgeTable tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.judgeBriefId {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 12px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+}
+
+.judgeNum {
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.judgeScoreHigh,
+.judgeScoreMid,
+.judgeScoreLow,
+.judgeScoreNA {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 38px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+
+.judgeScoreHigh {
+  color: var(--status-success-text);
+  background-color: var(--status-success-bg);
+  border: 1px solid rgb(5 150 105 / 0.28);
+}
+
+.judgeScoreMid {
+  color: var(--status-warn-text);
+  background-color: var(--status-warn-bg);
+  border: 1px solid rgb(217 119 6 / 0.3);
+}
+
+.judgeScoreLow {
+  color: var(--status-danger-text);
+  background-color: var(--status-danger-bg);
+  border: 1px solid rgb(220 38 38 / 0.28);
+}
+
+.judgeScoreNA {
+  color: var(--color-text-muted);
+  background-color: var(--status-neutral-bg);
+  border: 1px solid var(--color-border-soft);
+}
+
+.judgeNotes {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.judgeNA {
+  color: var(--color-text-disabled);
+}
+
+.judgeFooter {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--color-text-secondary);
+}
+
+.judgeFooter strong {
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
 }
 
 /* ---- Card region (list + detail) ---- */
 .card {
   background-color: var(--color-surface);
-  border: 1px solid var(--color-border-soft);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
   overflow: hidden;
 }
 
@@ -78,17 +312,23 @@
 
 .tab {
   padding: 7px 14px;
-  border: 1px solid var(--color-border-soft);
-  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
   background-color: var(--color-surface);
   font: inherit;
   font-size: 13px;
   font-weight: var(--font-weight-medium);
   color: var(--color-text-secondary);
   cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition:
+    background-color var(--transition-ui) var(--ease),
+    border-color var(--transition-ui) var(--ease),
+    color var(--transition-ui) var(--ease);
 }
 
 .tab:hover {
+  background-color: #f1f5f9;
   border-color: var(--color-border-strong);
 }
 
@@ -98,9 +338,9 @@
 }
 
 .tabActive {
-  color: var(--color-primary-hover);
-  background-color: var(--color-primary-soft);
-  border-color: var(--color-primary-soft);
+  color: var(--color-primary);
+  background-color: var(--color-primary-soft-alpha);
+  border-color: rgb(79 70 229 / 0.28);
   font-weight: var(--font-weight-semibold);
 }
 
@@ -108,35 +348,46 @@
 .statusBadge {
   display: inline-flex;
   align-items: center;
+  gap: 6px;
   padding: 3px 9px;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   font-size: 11.5px;
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.03em;
   white-space: nowrap;
 }
 
+/* 6px round status dot. */
+.statusBadge::before {
+  content: '';
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: currentColor;
+}
+
 .statusPass {
-  color: #166534;
-  background-color: #ecfdf3;
-  border: 1px solid #bbf7d0;
+  color: var(--status-success-text);
+  background-color: var(--status-success-bg);
+  border: 1px solid rgb(5 150 105 / 0.28);
 }
 
 .statusWarn {
-  color: #92400e;
-  background-color: #fffbeb;
-  border: 1px solid #fde68a;
+  color: var(--status-warn-text);
+  background-color: var(--status-warn-bg);
+  border: 1px solid rgb(217 119 6 / 0.3);
 }
 
 .statusFail {
-  color: #991b1b;
-  background-color: #fef2f2;
-  border: 1px solid #fecaca;
+  color: var(--status-danger-text);
+  background-color: var(--status-danger-bg);
+  border: 1px solid rgb(220 38 38 / 0.28);
 }
 
 .statusSkipped {
   color: var(--color-text-muted);
-  background-color: #f1f5f9;
+  background-color: var(--status-neutral-bg);
   border: 1px solid var(--color-border-soft);
 }
 
@@ -180,17 +431,17 @@
 }
 
 .countPass {
-  color: #166534;
+  color: var(--status-success-text);
   font-weight: var(--font-weight-semibold);
 }
 
 .countWarn {
-  color: #92400e;
+  color: var(--status-warn-text);
   font-weight: var(--font-weight-semibold);
 }
 
 .countFail {
-  color: #991b1b;
+  color: var(--status-danger-text);
   font-weight: var(--font-weight-semibold);
 }
 
@@ -243,16 +494,32 @@
 
 .subjectTitle {
   margin: 0;
-  font-size: 15.5px;
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+/* Small gate dot before the section title. */
+.subjectTitle::before {
+  content: '';
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 3px;
+  background: var(--accent-gradient);
 }
 
 .subjectTitleHint {
   font-size: 12px;
   font-weight: var(--font-weight-normal);
-  color: var(--color-text-faint);
-  margin-left: 6px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--color-text-muted);
 }
 
 .summaryChips {
@@ -274,31 +541,31 @@
 
 .chipTotal {
   color: var(--color-text-secondary);
-  background-color: #f1f5f9;
+  background-color: var(--status-neutral-bg);
   border: 1px solid var(--color-border-soft);
 }
 
 .chipPass {
-  color: #166534;
-  background-color: #ecfdf3;
-  border: 1px solid #bbf7d0;
+  color: var(--status-success-text);
+  background-color: var(--status-success-bg);
+  border: 1px solid rgb(5 150 105 / 0.28);
 }
 
 .chipWarn {
-  color: #92400e;
-  background-color: #fffbeb;
-  border: 1px solid #fde68a;
+  color: var(--status-warn-text);
+  background-color: var(--status-warn-bg);
+  border: 1px solid rgb(217 119 6 / 0.3);
 }
 
 .chipFail {
-  color: #991b1b;
-  background-color: #fef2f2;
-  border: 1px solid #fecaca;
+  color: var(--status-danger-text);
+  background-color: var(--status-danger-bg);
+  border: 1px solid rgb(220 38 38 / 0.28);
 }
 
 .chipSkipped {
   color: var(--color-text-muted);
-  background-color: #f1f5f9;
+  background-color: var(--status-neutral-bg);
   border: 1px solid var(--color-border-soft);
 }
 
@@ -317,19 +584,28 @@
 
 .checksTable th {
   text-align: left;
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   color: var(--color-text-faint);
-  padding: 8px 10px;
-  border-bottom: 1px solid var(--color-border-soft);
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .checksTable td {
-  padding: 10px;
+  padding: 10px 12px;
   border-bottom: 1px solid var(--color-border-soft);
   vertical-align: top;
+  font-variant-numeric: tabular-nums;
+}
+
+.checksTable tbody tr {
+  transition: background-color var(--transition-ui) var(--ease);
+}
+
+.checksTable tbody tr:hover {
+  background-color: var(--color-row-hover);
 }
 
 .checksTable tbody tr:last-child td {

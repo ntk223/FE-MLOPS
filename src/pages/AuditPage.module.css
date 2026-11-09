@@ -1,0 +1,344 @@
+/* Page-scoped styles for the audit log page — /audit (§1.12).
+   Follows the visual language of EvaluationsPage.module.css. */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-bottom: var(--space-2);
+}
+
+.title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.01em;
+  color: var(--color-text);
+}
+
+.subtitle {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--color-text-muted);
+}
+
+.headerRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.refreshButton {
+  flex: none;
+  margin-top: var(--space-1);
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+/* ---- Dòng "Cập nhật lúc HH:mm:ss" ---- */
+.updatedAt {
+  margin: 2px 0 0;
+  font-size: 11.5px;
+  color: var(--color-text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Filter bar: 2 select + dòng đếm "N/M bản ghi" ---- */
+.filterBar {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.filterBar > div {
+  width: 220px;
+}
+
+.countText {
+  margin-left: auto;
+  padding-bottom: 9px;
+  font-size: 12.5px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ---- Skeleton shimmer ---- */
+.skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: var(--space-6);
+}
+
+.skeletonRow {
+  height: 18px;
+  border-radius: 6px;
+  background: linear-gradient(
+    90deg,
+    #e8ecf3 25%,
+    #f7f9fc 50%,
+    #e8ecf3 75%
+  );
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes skeletonShimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeletonRow {
+    animation: none;
+  }
+}
+
+/* ---- Card region ---- */
+.card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+
+.errorBox {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-6);
+}
+
+.errorActions {
+  display: flex;
+  justify-content: center;
+}
+
+/* ---- Bảng nhật ký ---- */
+.logsTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.logsTable th {
+  text-align: left;
+  font-size: 12px;
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-faint);
+  background-color: var(--color-bg-subtle);
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+
+.logsTable td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--color-border-soft);
+  vertical-align: top;
+  font-variant-numeric: tabular-nums;
+}
+
+.logsTable tbody tr {
+  transition: background-color var(--transition-ui) var(--ease);
+}
+
+.logsTable tbody tr:hover {
+  background-color: var(--color-row-hover);
+}
+
+.logsTable tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* ---- Cột Thời gian ---- */
+.atText {
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+/* ---- Cột Người thực hiện ---- */
+.actorWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.actorName {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+  white-space: nowrap;
+}
+
+.actorEmail {
+  font-size: 11.5px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+/* Actor null → hệ thống tự động (scheduler/pipeline). */
+.systemActor {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: var(--font-weight-medium);
+  font-style: italic;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.systemActor::before {
+  content: '';
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--color-text-placeholder);
+}
+
+/* ---- Cột Hành động: badge soft + dot theo nhóm ---- */
+.actionBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  border: 1px solid transparent;
+  font-size: 11.5px;
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+}
+
+/* 6px round dot — cùng pattern với Badge trong ui.module.css. */
+.actionBadge::before {
+  content: '';
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: currentColor;
+}
+
+/* brief / decision → indigo */
+.toneIndigo {
+  color: var(--color-primary-hover);
+  background-color: var(--color-primary-soft);
+  border-color: rgb(79 70 229 / 0.28);
+}
+
+/* evaluation → success */
+.toneSuccess {
+  color: var(--status-success-text);
+  background-color: var(--status-success-bg);
+  border-color: rgb(5 150 105 / 0.28);
+}
+
+/* login_success → warn */
+.toneWarn {
+  color: var(--status-warn-text);
+  background-color: var(--status-warn-bg);
+  border-color: rgb(217 119 6 / 0.3);
+}
+
+/* login_failed → đỏ */
+.toneDanger {
+  color: var(--status-danger-text);
+  background-color: var(--status-danger-bg);
+  border-color: rgb(220 38 38 / 0.28);
+}
+
+/* còn lại (prediction_list, action lạ) → neutral */
+.toneNeutral {
+  color: var(--status-neutral-text);
+  background-color: var(--status-neutral-bg);
+  border-color: var(--color-border-soft);
+}
+
+/* ---- Cột Đối tượng: entity + #entity_id ---- */
+.entityWrap {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.entityName {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 12px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  background-color: var(--color-bg-subtle);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-sm);
+  padding: 2px 6px;
+}
+
+.entityId {
+  font-size: 11.5px;
+  color: var(--color-text-faint);
+  font-variant-numeric: tabular-nums;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---- Cột Chi tiết: payload expandable <details> ---- */
+.payloadDetails summary {
+  cursor: pointer;
+  font-size: 12.5px;
+  color: var(--color-text-secondary);
+}
+
+.payloadDetails summary:hover {
+  color: var(--color-primary);
+}
+
+.payloadDetails[open] summary {
+  margin-bottom: 6px;
+}
+
+.payloadPre {
+  margin: 0;
+  padding: 8px 10px;
+  background-color: var(--color-bg-subtle);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--color-text-secondary);
+}
+
+/* ---- Footer / empty ---- */
+.mutedText {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.emptyWrap {
+  padding: var(--space-10) var(--space-6);
+  display: flex;
+  justify-content: center;
+}
