@@ -7,6 +7,7 @@
 - [x] Implement student profile với disclaimer, signal attribution và uncertainty (real API).
 - [ ] Implement brief generate/read/edit/accept/reject flow — 🟡 đang mock, chờ backend M8.
 - [x] Hiển thị insufficient-data, manual-review, fallback và API error states (đủ 4 status).
+- [x] Tích hợp Advisor Copilot Chatbot (hỏi đáp tương tác, grounding, quick prompts, chốt Brief).
 - [x] Đảm bảo route/UI chỉ dành cho advisor/admin; không có student view (client-side guard).
 - [ ] Thêm accessibility, responsive layout và component tests.
 - [ ] Thêm container build/deploy config sau khi UI/API contract ổn định.

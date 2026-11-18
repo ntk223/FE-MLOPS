@@ -147,6 +147,58 @@ export interface BriefDecision {
   decidedAt: string;
 }
 
+/* ------------------------------------------------------------------ */
+/* Advisor Copilot Chatbot contracts (M8 Chat)                         */
+/* ------------------------------------------------------------------ */
+
+export type ChatSessionStatus = 'active' | 'finalized' | 'archived';
+
+export interface ChatSession {
+  sessionId: number;
+  studentKey: string;
+  codeModule: string;
+  codePresentation: string;
+  userId: number;
+  title: string;
+  status: ChatSessionStatus;
+  briefId: number | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+  quickPrompts: string[];
+}
+
+export type ChatMessageRole = 'advisor' | 'assistant';
+
+export interface CitedEvidence {
+  featureName: string;
+  observedValue?: unknown;
+  contribution?: number;
+  direction?: 'increases_risk' | 'decreases_risk' | string;
+  description?: string;
+  [key: string]: unknown;
+}
+
+export interface ChatMessage {
+  messageId: number;
+  sessionId: number;
+  role: ChatMessageRole;
+  content: string;
+  citedEvidence: CitedEvidence[];
+  tokensUsed: number;
+  createdAt: string | null;
+}
+
+export interface CreateChatSessionParams {
+  codeModule: string;
+  codePresentation: string;
+  studentKey: string;
+  title?: string;
+}
+
+export interface FinalizeBriefParams {
+  advisorNotes?: string;
+}
+
 export interface ApiError {
   code: string;
   message: string;

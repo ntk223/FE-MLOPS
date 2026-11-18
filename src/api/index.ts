@@ -44,6 +44,39 @@ export function createApiClient(): ILearnGuardApiClient {
     getQueueStats: (filters) => real.getQueueStats(filters),
     // GET /predictions/{m}/{p}/{s}/activity (§1.13) — backend đang code song song.
     getStudentActivity: (ref) => real.getStudentActivity(ref),
+    // Advisor Copilot Chatbot Endpoints (/briefs/chat/...)
+    getQuickPrompts: () =>
+      real.getQuickPrompts().catch((err) => {
+        console.warn('[API Client] real.getQuickPrompts failed, falling back to mock:', err);
+        return mock.getQuickPrompts();
+      }),
+    createOrResumeChatSession: (params) =>
+      real
+        .createOrResumeChatSession(params)
+        .catch((err) => {
+          console.warn('[API Client] real.createOrResumeChatSession failed, falling back to mock:', err);
+          return mock.createOrResumeChatSession(params);
+        }),
+    getChatSession: (id) =>
+      real.getChatSession(id).catch((err) => {
+        console.warn('[API Client] real.getChatSession failed, falling back to mock:', err);
+        return mock.getChatSession(id);
+      }),
+    listChatMessages: (id, l, o) =>
+      real.listChatMessages(id, l, o).catch((err) => {
+        console.warn('[API Client] real.listChatMessages failed, falling back to mock:', err);
+        return mock.listChatMessages(id, l, o);
+      }),
+    sendChatMessage: (id, c) =>
+      real.sendChatMessage(id, c).catch((err) => {
+        console.warn('[API Client] real.sendChatMessage failed, falling back to mock:', err);
+        return mock.sendChatMessage(id, c);
+      }),
+    finalizeChatToBrief: (id, p) =>
+      real.finalizeChatToBrief(id, p).catch((err) => {
+        console.warn('[API Client] real.finalizeChatToBrief failed, falling back to mock:', err);
+        return mock.finalizeChatToBrief(id, p);
+      }),
 
     // Mock — chờ backend M6 (auth).
     login: (credentials) => mock.login(credentials),

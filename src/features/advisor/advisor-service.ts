@@ -11,10 +11,21 @@ import type { ILearnGuardApiClient, QueueStats } from '../../api/client';
  * backend; this service is a thin, typed boundary.
  */
 export class AdvisorService {
+  private readonly inFlightQueue = new Map<string, Promise<any>>();
+
   constructor(private readonly api: ILearnGuardApiClient) {}
 
   getPriorityQueue(filters: StudentFilters) {
-    return this.api.listPredictions(filters);
+    const key = JSON.stringify(filters);
+    const inFlight = this.inFlightQueue.get(key);
+    if (inFlight) {
+      return inFlight;
+    }
+    const promise = this.api.listPredictions(filters).finally(() => {
+      this.inFlightQueue.delete(key);
+    });
+    this.inFlightQueue.set(key, promise);
+    return promise;
   }
 
   /** Aggregated counts for the dashboard summary strip (mock-stage endpoint). */
