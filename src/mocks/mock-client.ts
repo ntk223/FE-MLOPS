@@ -4,6 +4,11 @@ import type {
   ApiError,
   BriefDecision,
   BriefEdits,
+  ChatMessage,
+  ChatSession,
+  CitedEvidence,
+  CreateChatSessionParams,
+  FinalizeBriefParams,
   PredictionPage,
   PredictionRef,
   StudentFilters,
@@ -174,6 +179,12 @@ export class MockApiClient implements ILearnGuardApiClient {
   /** Timer mô phỏng 6s chạy đánh giá — dọn dẹp nếu trigger lại. */
   private runTimer: ReturnType<typeof setInterval> | null = null;
 
+  /** Quản lý phiên chat và tin nhắn của Cố vấn (Advisor Copilot). */
+  private chatSessions: ChatSession[] = [];
+  private chatMessages: ChatMessage[] = [];
+  private nextSessionId: number = 501;
+  private nextMessageId: number = 1001;
+
   constructor() {
     this.students = [...MOCK_STUDENTS];
     this.briefs = [...MOCK_BRIEFS];
@@ -188,6 +199,8 @@ export class MockApiClient implements ILearnGuardApiClient {
       summary: null,
       error: null,
     };
+    this.chatSessions = [];
+    this.chatMessages = [];
   }
 
   async login(credentials: LoginCredentials): Promise<AdvisorSession> {
@@ -744,6 +757,340 @@ export class MockApiClient implements ILearnGuardApiClient {
       summary,
       error: null,
     };
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Advisor Copilot Chatbot Mock Implementation                        */
+  /* ------------------------------------------------------------------ */
+
+  async getQuickPrompts(): Promise<string[]> {
+    await this.delay();
+    return [
+      'Tại sao sinh viên này có nguy cơ rớt môn cao?',
+      'Sinh viên này sụt giảm tương tác từ tuần mấy?',
+      'Có bài tập nào bị nộp trễ hoặc điểm thấp không?',
+      'Gợi ý kịch bản trao đổi và kế hoạch can thiệp cho sinh viên',
+      'Soạn email mẫu gửi sinh viên nhắc nhở học tập',
+    ];
+  }
+
+  async createOrResumeChatSession(
+    params: CreateChatSessionParams,
+  ): Promise<ChatSession> {
+    await this.delay();
+
+    const student = this.students.find(
+      (candidate) =>
+        candidate.codeModule === params.codeModule &&
+        candidate.codePresentation === params.codePresentation &&
+        candidate.studentKey === params.studentKey,
+    );
+    if (!student) {
+      throw this.error('PREDICTION_NOT_FOUND', 'Không tìm thấy dự đoán sinh viên.');
+    }
+
+    // Check for an existing active session
+    let session = this.chatSessions.find(
+      (s) =>
+        s.codeModule === params.codeModule &&
+        s.codePresentation === params.codePresentation &&
+        s.studentKey === params.studentKey &&
+        s.status === 'active',
+    );
+
+    if (!session) {
+      const now = new Date().toISOString();
+      const quickPrompts = [
+        'Tại sao sinh viên này có nguy cơ rớt môn cao?',
+        'Sinh viên này sụt giảm tương tác từ tuần mấy?',
+        'Có bài tập nào bị nộp trễ hoặc điểm thấp không?',
+        'Gợi ý kịch bản trao đổi và kế hoạch can thiệp cho sinh viên',
+      ];
+      session = {
+        sessionId: this.nextSessionId++,
+        studentKey: params.studentKey,
+        codeModule: params.codeModule,
+        codePresentation: params.codePresentation,
+        userId: 1,
+        title:
+          params.title ||
+          `Tư vấn SV ${params.studentKey} (${params.codeModule}-${params.codePresentation})`,
+        status: 'active',
+        briefId: null,
+        createdAt: now,
+        updatedAt: now,
+        quickPrompts,
+      };
+      this.chatSessions.push(session);
+
+      // Seed an initial greeting from the assistant
+      this.chatMessages.push({
+        messageId: this.nextMessageId++,
+        sessionId: session.sessionId,
+        role: 'assistant',
+        content: `Xin chào Cố vấn! Tôi là Trợ lý Cố vấn Học thuật LearnGuard. Tôi đã tổng hợp dữ liệu dự đoán nguy cơ và chỉ số tương tác VLE của sinh viên ${params.studentKey}. Bạn có thể đặt câu hỏi hoặc chọn các câu hỏi gợi ý bên dưới để cùng phân tích.`,
+        citedEvidence: [],
+        tokensUsed: 42,
+        createdAt: now,
+      });
+    }
+
+    return session;
+  }
+
+  async getChatSession(sessionId: number): Promise<ChatSession> {
+    await this.delay();
+    const session = this.chatSessions.find((s) => s.sessionId === sessionId);
+    if (!session) {
+      throw this.error('CHAT_SESSION_NOT_FOUND', 'Không tìm thấy phiên chat.');
+    }
+    return session;
+  }
+
+  async listChatMessages(
+    sessionId: number,
+    limit: number = 50,
+    offset: number = 0,
+  ): Promise<ChatMessage[]> {
+    await this.delay();
+    const messages = this.chatMessages.filter((m) => m.sessionId === sessionId);
+    return messages.slice(offset, offset + limit);
+  }
+
+  async sendChatMessage(
+    sessionId: number,
+    content: string,
+  ): Promise<ChatMessage> {
+    await this.delay();
+
+    const session = this.chatSessions.find((s) => s.sessionId === sessionId);
+    if (!session) {
+      throw this.error('CHAT_SESSION_NOT_FOUND', 'Không tìm thấy phiên chat.');
+    }
+    if (session.status !== 'active') {
+      throw this.error(
+        'CHAT_SESSION_NOT_ACTIVE',
+        `Phiên chat này đã kết thúc (${session.status}).`,
+      );
+    }
+
+    const student = this.students.find(
+      (s) =>
+        s.codeModule === session.codeModule &&
+        s.codePresentation === session.codePresentation &&
+        s.studentKey === session.studentKey,
+    );
+
+    const now = new Date().toISOString();
+
+    // 1. Lưu tin nhắn của Cố vấn
+    const advisorMsg: ChatMessage = {
+      messageId: this.nextMessageId++,
+      sessionId,
+      role: 'advisor',
+      content,
+      citedEvidence: [],
+      tokensUsed: 0,
+      createdAt: now,
+    };
+    this.chatMessages.push(advisorMsg);
+
+    // 2. Trả lời từ Trợ lý theo ngữ cảnh
+    const normalized = content.toLowerCase();
+    let replyText = '';
+    const citedEvidence: CitedEvidence[] = [];
+
+    if (
+      normalized.includes('nguy cơ') ||
+      normalized.includes('tại sao') ||
+      normalized.includes('rủi ro') ||
+      normalized.includes('nguyên nhân')
+    ) {
+      const riskScoreStr =
+        student?.riskScore !== null && student?.riskScore !== undefined
+          ? `${Math.round(student.riskScore * 100)}%`
+          : 'chưa có';
+      const thresholdStr =
+        student?.threshold !== null && student?.threshold !== undefined
+          ? `${Math.round(student.threshold * 100)}%`
+          : '50%';
+
+      replyText = `Sinh viên ${session.studentKey} có điểm nguy cơ dự đoán là ${riskScoreStr} (ngưỡng cảnh báo: ${thresholdStr}). Các yếu tố chính tác động đến dự đoán bao gồm:\n\n`;
+
+      if (student && student.topSignals.length > 0) {
+        student.topSignals.slice(0, 3).forEach((sig) => {
+          const dirText =
+            sig.direction === 'increases_risk'
+              ? 'làm tăng đáng kể nguy cơ'
+              : 'giảm nguy cơ';
+          replyText += `- **${sig.featureName}**: Đóng góp ${sig.contribution.toFixed(2)} (${dirText}).\n`;
+          citedEvidence.push({
+            featureName: sig.featureName,
+            contribution: sig.contribution,
+            direction: sig.direction,
+            observedValue: student.features[sig.featureName] ?? undefined,
+          });
+        });
+      } else {
+        replyText += '- Số lượt tương tác trên hệ thống học tập VLE giảm dần trước mốc cutoff 27 ngày.\n- Tần suất nộp bài tập chưa đồng đều.';
+      }
+    } else if (
+      normalized.includes('sụt giảm') ||
+      normalized.includes('tương tác') ||
+      normalized.includes('tuần') ||
+      normalized.includes('click') ||
+      normalized.includes('vle')
+    ) {
+      replyText = `Phân tích dữ liệu VLE cho sinh viên ${session.studentKey} cho thấy:\n\n` +
+        `- **Giai đoạn trước khóa & tuần 1–2**: Sinh viên duy trì hoạt động tương đối tốt (truy cập tài liệu và diễn đàn).\n` +
+        `- **Tuần 3 trở đi**: Bắt đầu xuất hiện xu hướng sụt giảm rõ rệt. Lượt truy cập tài liệu môn học giảm hơn 65% so với tuần 2.\n` +
+        `- **Tuần 4**: Tương tác gần như ngưng trệ, sinh viên hầu như không đăng nhập hệ thống VLE trước ngày cắt (cutoff_day 27).\n\n` +
+        `Điều này chỉ ra sinh viên có thể đang gặp rào cản về tiếp thu kiến thức tuần 3 hoặc phát sinh khó khăn cá nhân/kỹ thuật.`;
+      citedEvidence.push({
+        featureName: 'click_trend_w3_w4',
+        observedValue: -28,
+        description: 'Độ dốc sụt giảm tương tác từ tuần 3 sang tuần 4',
+      });
+      citedEvidence.push({
+        featureName: 'n_clicks_w4',
+        observedValue: 3,
+        description: 'Tổng lượt click trong tuần thứ 4',
+      });
+    } else if (
+      normalized.includes('bài tập') ||
+      normalized.includes('điểm') ||
+      normalized.includes('nộp') ||
+      normalized.includes('trễ') ||
+      normalized.includes('assessment')
+    ) {
+      replyText = `Về tình hình bài tập và đánh giá của sinh viên ${session.studentKey}:\n\n` +
+        `- Đã có bài đánh giá đầu kỳ (TMA 01): Sinh viên nộp trễ so với thời hạn quy định, điểm số đạt mức trung bình thấp (khoảng 45/100).\n` +
+        `- Chưa hoàn thành quiz kiểm tra kiến thức tuần 3.\n` +
+        `- **Khuyến nghị**: Cần nhắc nhở sinh viên về bài tập đánh giá tiếp theo (trọng số 20%), vì trượt bài tập này sẽ làm tăng nguy cơ không đủ điều kiện dự thi cuối kỳ.`;
+      citedEvidence.push({
+        featureName: 'avg_score_submitted',
+        observedValue: 45.0,
+        description: 'Điểm trung bình các bài đã nộp',
+      });
+      citedEvidence.push({
+        featureName: 'n_late_submissions',
+        observedValue: 1,
+        description: 'Số bài nộp muộn',
+      });
+    } else if (
+      normalized.includes('kịch bản') ||
+      normalized.includes('can thiệp') ||
+      normalized.includes('email') ||
+      normalized.includes('kế hoạch') ||
+      normalized.includes('soạn')
+    ) {
+      replyText = `Dưới đây là kịch bản trao đổi và kế hoạch can thiệp đề xuất cho Cố vấn:\n\n` +
+        `**1. Mục tiêu trao đổi:**\n` +
+        `- Tìm hiểu lý do sinh viên sụt giảm tương tác từ tuần 3.\n` +
+        `- Động viên tinh thần và cung cấp hướng dẫn bù đắp bài tập đã trễ.\n\n` +
+        `**2. Mẫu tin nhắn / Email gửi sinh viên:**\n` +
+        `> *"Chào em, thầy/cô nhận thấy trong 2 tuần gần đây em có vẻ ít đăng nhập hệ thống học phần ${session.codeModule}. Học kỳ đang bước vào giai đoạn quan trọng với các bài đánh giá sắp tới. Nếu em đang gặp khó khăn về tài liệu, phương pháp học hay vấn đề cá nhân, hãy phản hồi lại email này để thầy/cô và trợ giảng hỗ trợ em kịp thời nhé!"*\n\n` +
+        `**3. Đề xuất hành động tiếp theo:**\n` +
+        `- Hẹn gặp tư vấn trực tuyến 15 phút nếu sinh viên phản hồi.\n` +
+        `- Chuyển tài liệu tóm tắt kiến thức tuần 3-4 cho sinh viên.`;
+    } else {
+      replyText = `Cảm ơn câu hỏi của bạn. Dựa trên hồ sơ học tập của sinh viên ${session.studentKey} trong học phần ${session.codeModule}-${session.codePresentation}, sinh viên đang thuộc nhóm cần theo dõi sát sao. Bạn có thể hỏi sâu hơn về lịch sử tương tác VLE, các bài tập nộp trễ, hoặc yêu cầu soạn thảo kế hoạch can thiệp cụ thể. Khi hoàn tất, bạn có thể bấm **"Chốt & Tạo Brief chính thức"** để lưu kết quả.`;
+    }
+
+    const tokensUsed = 180 + Math.floor(Math.random() * 80);
+
+    const assistantMsg: ChatMessage = {
+      messageId: this.nextMessageId++,
+      sessionId,
+      role: 'assistant',
+      content: replyText,
+      citedEvidence,
+      tokensUsed,
+      createdAt: new Date().toISOString(),
+    };
+    this.chatMessages.push(assistantMsg);
+
+    session.updatedAt = new Date().toISOString();
+    return assistantMsg;
+  }
+
+  async finalizeChatToBrief(
+    sessionId: number,
+    params?: FinalizeBriefParams,
+  ): Promise<AdvisorBrief> {
+    await this.delay();
+
+    const session = this.chatSessions.find((s) => s.sessionId === sessionId);
+    if (!session) {
+      throw this.error('CHAT_SESSION_NOT_FOUND', 'Không tìm thấy phiên chat.');
+    }
+
+    const student = this.students.find(
+      (s) =>
+        s.codeModule === session.codeModule &&
+        s.codePresentation === session.codePresentation &&
+        s.studentKey === session.studentKey,
+    );
+
+    const existing = this.briefs.find(
+      (brief) =>
+        brief.codeModule === session.codeModule &&
+        brief.codePresentation === session.codePresentation &&
+        brief.studentKey === session.studentKey,
+    );
+    const version = existing ? existing.version + 1 : 1;
+    const briefId = existing ? existing.briefId : this.nextBriefId++;
+
+    const limitations = [
+      'Bản tóm tắt được tổng hợp từ cuộc trao đổi tương tác với Trợ lý AI và đã qua rà soát của Cố vấn.',
+      'Các tín hiệu thể hiện mối tương quan hành vi tại thời điểm cutoff 27 ngày.',
+    ];
+    if (params?.advisorNotes) {
+      limitations.push(`Ghi chú của cố vấn: ${params.advisorNotes}`);
+    }
+
+    const finalizedBrief: AdvisorBrief = {
+      briefId,
+      codeModule: session.codeModule,
+      codePresentation: session.codePresentation,
+      studentKey: session.studentKey,
+      version,
+      status: 'generated',
+      summary: `Bản tóm tắt can thiệp chính thức được chốt từ phiên hỏi đáp cố vấn (Phiên #${session.sessionId}). Sinh viên có nguy cơ rớt môn cần can thiệp sớm do tương tác VLE sụt giảm nhanh và có bài tập nộp trễ.`,
+      reasons: [
+        {
+          text: 'Tương tác hệ thống sụt giảm rõ rệt từ tuần 3 sang tuần 4 trước ngày cắt.',
+          evidenceFeatures: ['click_trend_w3_w4', 'n_clicks_w4'],
+        },
+        {
+          text: 'Điểm số đánh giá ban đầu đạt thấp và phát sinh tình trạng nộp bài trễ hạn.',
+          evidenceFeatures: ['avg_score_submitted', 'n_late_submissions'],
+        },
+      ],
+      supportSuggestions: [
+        'Cố vấn gửi tin nhắn liên hệ trực tiếp để làm rõ rào cản học tập của sinh viên.',
+        'Cung cấp tài liệu ôn tập bù đắp kiến thức trọng tâm tuần 3-4.',
+        'Nhắc nhở hạn nộp bài kiểm tra tiếp theo có trọng số 20%.',
+      ],
+      limitations,
+      modelName: 'advisor-copilot-gemini-flash',
+      latencyMs: 840,
+      createdAt: new Date().toISOString(),
+      editedAt: null,
+    };
+
+    // Update session
+    session.status = 'finalized';
+    session.briefId = briefId;
+    session.updatedAt = new Date().toISOString();
+
+    // Store in briefs list
+    this.briefs = [
+      ...this.briefs.filter((b) => b.briefId !== briefId),
+      finalizedBrief,
+    ];
+
+    return finalizedBrief;
   }
 
   /** Filter the mock dataset exactly like the backend list endpoint. */

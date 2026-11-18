@@ -18,6 +18,7 @@ import {
   Spinner,
   StatusBadge,
 } from '../components/ui';
+import { AdvisorChatDrawer } from '../components/chat';
 import { FEATURE_LABELS, featureLabel, signalLabel } from '../features/advisor/feature-labels';
 import styles from './StudentDetailPage.module.css';
 
@@ -342,6 +343,7 @@ export function StudentDetailPage(): ReactElement {
   const [brief, setBrief] = useState<AdvisorBrief | null>(null);
   const [briefBusy, setBriefBusy] = useState(false);
   const [briefError, setBriefError] = useState<string | null>(null);
+  const [chatOpen, setChatOpen] = useState(false);
   const [editingBrief, setEditingBrief] = useState(false);
   const [editDraft, setEditDraft] = useState<BriefEditDraft | null>(null);
   const [editBusy, setEditBusy] = useState(false);
@@ -589,14 +591,25 @@ export function StudentDetailPage(): ReactElement {
       </nav>
 
       <header className={styles.header}>
-        <h1 className={styles.title}>
-          Hồ sơ dự đoán — {prediction.codeModule} ·{' '}
-          {prediction.codePresentation}
-        </h1>
-        <p className={styles.studentKey}>
-          Mã giả danh (student key):{' '}
-          <code>{prediction.studentKey}</code>
-        </p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
+          <div>
+            <h1 className={styles.title}>
+              Hồ sơ dự đoán — {prediction.codeModule} ·{' '}
+              {prediction.codePresentation}
+            </h1>
+            <p className={styles.studentKey}>
+              Mã giả danh (student key):{' '}
+              <code>{prediction.studentKey}</code>
+            </p>
+          </div>
+          <Button
+            variant="primary"
+            onClick={() => setChatOpen(true)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}
+          >
+            💬 Hỏi đáp Trợ lý AI (Copilot)
+          </Button>
+        </div>
       </header>
 
       <Card>
@@ -790,12 +803,19 @@ export function StudentDetailPage(): ReactElement {
         {brief === null ? (
           <div className={styles.briefActions}>
             <Button
+              variant="primary"
+              onClick={() => setChatOpen(true)}
+            >
+              💬 Hỏi đáp Trợ lý AI & Chốt Brief
+            </Button>
+            <Button
+              variant="secondary"
               onClick={() => {
                 void handleGenerateBrief();
               }}
               disabled={briefBusy}
             >
-              {briefBusy ? 'Đang tạo…' : 'Tạo bản tóm tắt'}
+              {briefBusy ? 'Đang tạo…' : 'Tạo bản tóm tắt nhanh'}
             </Button>
             {briefError !== null && (
               <p className={styles.briefError} role="alert">
@@ -953,6 +973,12 @@ export function StudentDetailPage(): ReactElement {
             )}
             <div className={styles.briefActions}>
               <Button
+                variant="primary"
+                onClick={() => setChatOpen(true)}
+              >
+                💬 Trao đổi với Trợ lý AI
+              </Button>
+              <Button
                 variant="secondary"
                 onClick={handleStartEditBrief}
                 disabled={briefBusy}
@@ -972,6 +998,20 @@ export function StudentDetailPage(): ReactElement {
           </div>
         )}
       </Card>
+
+      <AdvisorChatDrawer
+        open={chatOpen}
+        onClose={() => setChatOpen(false)}
+        predictionRef={{
+          codeModule: prediction.codeModule,
+          codePresentation: prediction.codePresentation,
+          studentKey: prediction.studentKey,
+        }}
+        onBriefFinalized={(finalizedBrief) => {
+          setBrief(finalizedBrief);
+          setBriefError(null);
+        }}
+      />
     </div>
   );
 }

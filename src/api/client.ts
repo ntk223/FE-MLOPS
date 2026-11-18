@@ -4,6 +4,13 @@ import type {
   BriefDecision,
   BriefEdits,
   BriefStatus,
+  ChatMessage,
+  ChatMessageRole,
+  ChatSession,
+  ChatSessionStatus,
+  CitedEvidence,
+  CreateChatSessionParams,
+  FinalizeBriefParams,
   PredictionPage,
   PredictionRef,
   PredictionSignal,
@@ -349,6 +356,22 @@ export interface ILearnGuardApiClient {
    * Lỗi: 404 student_not_found, 503 oulad_data_not_configured.
    */
   getStudentActivity(ref: PredictionRef): Promise<StudentActivity>;
+  /**
+   * Advisor Copilot Chatbot Endpoints (/briefs/chat/...)
+   */
+  getQuickPrompts(): Promise<string[]>;
+  createOrResumeChatSession(params: CreateChatSessionParams): Promise<ChatSession>;
+  getChatSession(sessionId: number): Promise<ChatSession>;
+  listChatMessages(
+    sessionId: number,
+    limit?: number,
+    offset?: number,
+  ): Promise<ChatMessage[]>;
+  sendChatMessage(sessionId: number, content: string): Promise<ChatMessage>;
+  finalizeChatToBrief(
+    sessionId: number,
+    params?: FinalizeBriefParams,
+  ): Promise<AdvisorBrief>;
 }
 
 const REQUEST_TIMEOUT_MS = 15_000;
@@ -498,6 +521,85 @@ function toBrief(raw: RawBrief): AdvisorBrief {
     latencyMs: raw.latency_ms ?? null,
     createdAt: raw.created_at ?? null,
     editedAt: raw.edited_at ?? null,
+  };
+}
+
+interface RawChatSession {
+  session_id: number;
+  student_key: string;
+  code_module: string;
+  code_presentation: string;
+  user_id: number;
+  title: string;
+  status: string;
+  brief_id: number | null;
+  created_at: string | null;
+  updated_at: string | null;
+  quick_prompts?: string[];
+}
+
+function toChatSession(raw: RawChatSession): ChatSession {
+  const status: ChatSessionStatus =
+    raw.status === 'finalized' || raw.status === 'archived'
+      ? raw.status
+      : 'active';
+  return {
+    sessionId: raw.session_id,
+    studentKey: raw.student_key,
+    codeModule: raw.code_module,
+    codePresentation: raw.code_presentation,
+    userId: raw.user_id,
+    title: raw.title,
+    status,
+    briefId: raw.brief_id ?? null,
+    createdAt: raw.created_at ?? null,
+    updatedAt: raw.updated_at ?? null,
+    quickPrompts: Array.isArray(raw.quick_prompts) ? raw.quick_prompts : [],
+  };
+}
+
+interface RawChatMessage {
+  message_id: number;
+  session_id: number;
+  role: string;
+  content: string;
+  cited_evidence?: Array<Record<string, unknown>>;
+  tokens_used?: number;
+  created_at: string | null;
+}
+
+function toChatMessage(raw: RawChatMessage): ChatMessage {
+  const role: ChatMessageRole = raw.role === 'advisor' ? 'advisor' : 'assistant';
+  const citedEvidence: CitedEvidence[] = Array.isArray(raw.cited_evidence)
+    ? raw.cited_evidence.map((entry) => ({
+        featureName:
+          typeof entry['feature_name'] === 'string'
+            ? entry['feature_name']
+            : (typeof entry['feature'] === 'string' ? entry['feature'] : ''),
+        observedValue: entry['observed_value'] ?? entry['value'],
+        contribution:
+          typeof entry['contribution'] === 'number'
+            ? entry['contribution']
+            : undefined,
+        direction:
+          typeof entry['direction'] === 'string'
+            ? entry['direction']
+            : undefined,
+        description:
+          typeof entry['description'] === 'string'
+            ? entry['description']
+            : undefined,
+        ...entry,
+      }))
+    : [];
+  return {
+    messageId: raw.message_id,
+    sessionId: raw.session_id,
+    role,
+    content: raw.content ?? '',
+    citedEvidence,
+    tokensUsed: typeof raw.tokens_used === 'number' ? raw.tokens_used : 0,
+    createdAt: raw.created_at ?? null,
   };
 }
 
@@ -1352,6 +1454,75 @@ export class LearnGuardApiClient implements ILearnGuardApiClient {
       `/${encodeURIComponent(ref.studentKey)}/activity`;
     const raw = await this.request<RawStudentActivity>(path);
     return toStudentActivity(raw);
+  }
+
+  async getQuickPrompts(): Promise<string[]> {
+    const raw = await this.request<string[]>('/briefs/chat/quick-prompts');
+    return Array.isArray(raw) ? raw : [];
+  }
+
+  async createOrResumeChatSession(
+    params: CreateChatSessionParams,
+  ): Promise<ChatSession> {
+    const raw = await this.request<RawChatSession>('/briefs/chat/sessions', {
+      method: 'POST',
+      body: {
+        code_module: params.codeModule,
+        code_presentation: params.codePresentation,
+        student_key: params.studentKey,
+        title: params.title,
+      },
+    });
+    return toChatSession(raw);
+  }
+
+  async getChatSession(sessionId: number): Promise<ChatSession> {
+    const raw = await this.request<RawChatSession>(
+      `/briefs/chat/sessions/${encodeURIComponent(String(sessionId))}`,
+    );
+    return toChatSession(raw);
+  }
+
+  async listChatMessages(
+    sessionId: number,
+    limit: number = 50,
+    offset: number = 0,
+  ): Promise<ChatMessage[]> {
+    const params = new URLSearchParams();
+    params.set('limit', String(limit));
+    params.set('offset', String(offset));
+    const raw = await this.request<RawChatMessage[]>(
+      `/briefs/chat/sessions/${encodeURIComponent(String(sessionId))}/messages?${params}`,
+    );
+    return Array.isArray(raw) ? raw.map(toChatMessage) : [];
+  }
+
+  async sendChatMessage(
+    sessionId: number,
+    content: string,
+  ): Promise<ChatMessage> {
+    const raw = await this.request<RawChatMessage>(
+      `/briefs/chat/sessions/${encodeURIComponent(String(sessionId))}/messages`,
+      {
+        method: 'POST',
+        body: { content },
+      },
+    );
+    return toChatMessage(raw);
+  }
+
+  async finalizeChatToBrief(
+    sessionId: number,
+    params?: FinalizeBriefParams,
+  ): Promise<AdvisorBrief> {
+    const raw = await this.request<RawBrief>(
+      `/briefs/chat/sessions/${encodeURIComponent(String(sessionId))}/finalize-brief`,
+      {
+        method: 'POST',
+        body: params?.advisorNotes ? { advisor_notes: params.advisorNotes } : {},
+      },
+    );
+    return toBrief(raw);
   }
 
   private async request<T>(
